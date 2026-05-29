@@ -1,5 +1,5 @@
 /**
- * Wario Synth v2 - Main Exports
+ * GameDudeSynth - Main Exports
  * 
  * Game Boy-authentic synthesis engine
  */

@@ -1,5 +1,5 @@
 /**
- * Sound Test for Wario Synth v2
+ * Sound Test for GameDudeSynth
  * 
  * Tests all individual sound generators to verify they work
  * and sound authentically Game Boy-like.
@@ -243,7 +243,7 @@ export async function testCombined(
 export async function runAllAudioTests(audioContext: AudioContext): Promise<void> {
   const { pulse, wave, noise } = createTestChannels(audioContext);
   
-  console.log('=== Wario Synth v2 Audio Tests ===\n');
+  console.log('=== GameDudeSynth Audio Tests ===\n');
   
   await testDutyCycles(pulse, audioContext);
   await sleep(500);

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Local server GUI for WarioSynth export page (Windows-friendly).
+Local server GUI for GameDudeSynth export page (Windows-friendly).
 
 Features:
 - Start/stop local HTTP server from a small GUI
@@ -125,7 +125,7 @@ class ServerController:
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("WarioSynth Local Server")
+        self.title("GameDudeSynth Local Server")
         self.resizable(False, False)
 
         self.controller = ServerController()
@@ -198,7 +198,7 @@ class App(tk.Tk):
             messagebox.showerror(
                 "Export page missing",
                 f"Could not find:\n{page_path}\n\n"
-                "Run this app from the WarioSynth project folder "
+                "Run this app from the GameDudeSynth project folder "
                 f"(where {DEFAULT_PAGE} and public/ live).\n"
                 "If you use the compiled exe, keep it in the project root, not only in dist/.",
             )

@@ -75,8 +75,8 @@ async function main() {
   const base = basename(inputPath).replace(/\.(mid|midi)$/i, '');
   const outDir = join(projectRoot, 'output');
   mkdirSync(outDir, { recursive: true });
-  const outProject = join(outDir, `${base}-wariosynth-v2.wav`);
-  const outDesktop = join(dirname(inputPath), `${base}-wariosynth-v2.wav`);
+  const outProject = join(outDir, `${base}-gamedudesynth.wav`);
+  const outDesktop = join(dirname(inputPath), `${base}-gamedudesynth.wav`);
   writeFileSync(outProject, wav);
   writeFileSync(outDesktop, wav);
 

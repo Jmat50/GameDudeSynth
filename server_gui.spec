@@ -1,4 +1,4 @@
-# PyInstaller spec for WarioSynth local server GUI (Windows)
+# PyInstaller spec for GameDudeSynth local server GUI (Windows)
 # Build: build_server_gui.bat  or  pyinstaller server_gui.spec
 
 block_cipher = None
@@ -28,7 +28,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='WarioSynthServer',
+    name='GameDudeSynthServer',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

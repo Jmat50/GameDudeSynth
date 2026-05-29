@@ -1,10 +1,10 @@
-# WarioSynth — Scope and Guidelines (for AI agents)
+# GameDudeSynth — Scope and Guidelines (for AI agents)
 
 ## What this project is
 
-**WarioSynth** converts local MIDI files into Game Boy–style audio using an 8-channel Web Audio engine (`src-v2/`). The main deliverable is offline WAV export via `main-v2-export.html` and optional CLI (`npm run process:midi`).
+**GameDudeSynth** converts local MIDI files into Game Boy–style audio using an 8-channel Web Audio engine (`src-v2/`). The main deliverable is offline WAV export via `main-v2-export.html` and optional CLI (`npm run process:midi`).
 
-This is **not** the MOTIF fork: there is no in-repo MIDI search, fetch API, soundfont preview app, or Vercel deploy stack.
+Local-only: no in-repo MIDI search, fetch API, soundfont preview app, or cloud deploy stack.
 
 ## In scope
 
@@ -18,7 +18,7 @@ This is **not** the MOTIF fork: there is no in-repo MIDI search, fetch API, soun
 ## Out of scope (unless explicitly requested)
 
 - MIDI search, URL fetch, SSRF-protected backends, embed widgets
-- v1 Motif generation / similarity / “more ominous” transforms
+- Legacy v1 generation / similarity transforms
 - Large refactors, new cloud infra, analytics
 
 ## Working conventions

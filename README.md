@@ -1,10 +1,10 @@
-# WarioSynth
+# GameDudeSynth
 
 Turn MIDI files into **Game Boy–style audio** and export WAV offline.
 
-WarioSynth is a standalone chiptune synthesis tool built around an 8-channel “Super Game Boy” engine (`src-v2/`): four pulse channels, two wave channels, and two noise channels. It analyzes MIDI tracks, assigns roles (lead, bass, drums, harmony), and renders through authentic-style oscillators and LFSR noise—no samples, no cloud backend.
+GameDudeSynth is a standalone chiptune synthesis tool built around an 8-channel “Super Game Boy” engine (`src-v2/`): four pulse channels, two wave channels, and two noise channels. It analyzes MIDI tracks, assigns roles (lead, bass, drums, harmony), and renders through authentic-style oscillators and LFSR noise—no samples, no cloud backend.
 
-This repo is **not** the MOTIF search-and-play web app. There is no MIDI search API, embed widget, or server-side fetch layer here—only local file in, WAV out.
+Local file in, WAV out only—no MIDI search API, embed widget, or server-side fetch layer.
 
 ## Quick start (Windows)
 
@@ -18,7 +18,7 @@ npm install
 3. Start the local server GUI:
 
 - Double-click **`start_server_gui.bat`**, or  
-- Run **`WarioSynthServer.exe`** (after `build_server_gui.bat`), or  
+- Run **`GameDudeSynthServer.exe`** (after `build_server_gui.bat`), or  
 - Run `python server_gui.py`
 
 4. Click **Start Server** → **Open in Browser**.
@@ -32,7 +32,7 @@ Hard-refresh the browser (`Ctrl+Shift+R`) after rebuilding the engine bundle.
 | Path | Purpose |
 |------|---------|
 | `main-v2-export.html` | Export UI (drag/drop MIDI, track review, WAV export) |
-| `public/gameboy-player.iife.js` | Browser bundle (`WarioSynthV2.GameBoyPlayer`) |
+| `public/gameboy-player.iife.js` | Browser bundle (`GameDudeSynthV2.GameBoyPlayer`) |
 | `src-v2/` | Synthesis engine source (APU, MIDI mapping, offline render) |
 | `server_gui.py` | Local static HTTP server for the export page |
 | `scripts/process-local-midi-v2.ts` | CLI: MIDI → WAV (headless, no browser) |
@@ -52,7 +52,7 @@ npm run test:track-analysis                  # Track role / drum routing regress
 build_server_gui.bat
 ```
 
-Produces `dist/WarioSynthServer.exe` and copies it to the project root. Run the exe from this folder (same directory as `main-v2-export.html` and `public/`).
+Produces `dist/GameDudeSynthServer.exe` and copies it to the project root. Run the exe from this folder (same directory as `main-v2-export.html` and `public/`).
 
 ## How it works
 

@@ -1,5 +1,5 @@
 "use strict";
-var WarioSynthV2 = (() => {
+var GameDudeSynthV2 = (() => {
   var __create = Object.create;
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -383,6 +383,7 @@ var WarioSynthV2 = (() => {
         var eventTypeByte = null;
         w.writeVarInt(deltaTime);
         switch (type) {
+          // meta events
           case "sequenceNumber":
             w.writeUInt8(255);
             w.writeUInt8(0);
@@ -497,6 +498,7 @@ var WarioSynthV2 = (() => {
               w.writeBytes(data);
             }
             break;
+          // system-exclusive
           case "sysEx":
             w.writeUInt8(240);
             w.writeVarInt(data.length);
@@ -507,6 +509,7 @@ var WarioSynthV2 = (() => {
             w.writeVarInt(data.length);
             w.writeBytes(data);
             break;
+          // channel events
           case "noteOff":
             var noteByte = useByte9ForNoteOff !== false && event.byte9 || useByte9ForNoteOff && event.velocity == 0 ? 144 : 128;
             eventTypeByte = noteByte | event.channel;
@@ -709,7 +712,7 @@ var WarioSynthV2 = (() => {
       ];
       var Header = (
         /** @class */
-        function() {
+        (function() {
           function Header2(midiData) {
             var _this = this;
             this.tempos = [];
@@ -877,7 +880,7 @@ var WarioSynthV2 = (() => {
             this.update();
           };
           return Header2;
-        }()
+        })()
       );
       exports.Header = Header;
     }
@@ -912,7 +915,7 @@ var WarioSynthV2 = (() => {
       var privateCCNumberMap = /* @__PURE__ */ new WeakMap();
       var ControlChange = (
         /** @class */
-        function() {
+        (function() {
           function ControlChange2(event, header) {
             privateHeaderMap.set(this, header);
             privateCCNumberMap.set(this, event.controllerType);
@@ -967,7 +970,7 @@ var WarioSynthV2 = (() => {
             };
           };
           return ControlChange2;
-        }()
+        })()
       );
       exports.ControlChange = ControlChange;
     }
@@ -1014,7 +1017,7 @@ var WarioSynthV2 = (() => {
       var privateHeaderMap = /* @__PURE__ */ new WeakMap();
       var PitchBend = (
         /** @class */
-        function() {
+        (function() {
           function PitchBend2(event, header) {
             privateHeaderMap.set(this, header);
             this.ticks = event.absoluteTime;
@@ -1043,7 +1046,7 @@ var WarioSynthV2 = (() => {
             };
           };
           return PitchBend2;
-        }()
+        })()
       );
       exports.PitchBend = PitchBend;
     }
@@ -1227,7 +1230,7 @@ var WarioSynthV2 = (() => {
       var privateTrackMap = /* @__PURE__ */ new WeakMap();
       var Instrument = (
         /** @class */
-        function() {
+        (function() {
           function Instrument2(trackData, track) {
             this.number = 0;
             privateTrackMap.set(this, track);
@@ -1297,7 +1300,7 @@ var WarioSynthV2 = (() => {
             this.number = json.number;
           };
           return Instrument2;
-        }()
+        })()
       );
       exports.Instrument = Instrument;
     }
@@ -1322,7 +1325,7 @@ var WarioSynthV2 = (() => {
         var scaleIndexToNote = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
         return scaleIndexToNote.indexOf(pitch);
       }
-      var pitchToMidi = /* @__PURE__ */ function() {
+      var pitchToMidi = /* @__PURE__ */ (function() {
         var regexp = /^([a-g]{1}(?:b|#|x|bb)?)(-?[0-9]+)/i;
         var noteToScaleIndex = {
           // tslint:disable-next-line: object-literal-sort-keys
@@ -1369,11 +1372,11 @@ var WarioSynthV2 = (() => {
           var index = noteToScaleIndex[pitch.toLowerCase()];
           return index + (parseInt(octave, 10) + 1) * 12;
         };
-      }();
+      })();
       var privateHeaderMap = /* @__PURE__ */ new WeakMap();
       var Note = (
         /** @class */
-        function() {
+        (function() {
           function Note2(noteOn, noteOff, header) {
             privateHeaderMap.set(this, header);
             this.midi = noteOn.midi;
@@ -1478,7 +1481,7 @@ var WarioSynthV2 = (() => {
             };
           };
           return Note2;
-        }()
+        })()
       );
       exports.Note = Note;
     }
@@ -1499,7 +1502,7 @@ var WarioSynthV2 = (() => {
       var privateHeaderMap = /* @__PURE__ */ new WeakMap();
       var Track = (
         /** @class */
-        function() {
+        (function() {
           function Track2(trackData, header) {
             var _this = this;
             this.name = "";
@@ -1699,7 +1702,7 @@ var WarioSynthV2 = (() => {
             return json;
           };
           return Track2;
-        }()
+        })()
       );
       exports.Track = Track;
     }
@@ -2034,7 +2037,7 @@ var WarioSynthV2 = (() => {
       var Encode_1 = require_Encode();
       var Midi2 = (
         /** @class */
-        function() {
+        (function() {
           function Midi3(midiArray) {
             var _this = this;
             var midiData = null;
@@ -2152,7 +2155,7 @@ var WarioSynthV2 = (() => {
             return midi;
           };
           return Midi3;
-        }()
+        })()
       );
       exports.Midi = Midi2;
       var Track_2 = require_Track();
@@ -4334,7 +4337,7 @@ var WarioSynthV2 = (() => {
     }
     assignDrums(analysis, usedChannels, existingAssignments) {
       if (!analysis.isDrums) return null;
-      const channel = this.findFreeChannel(CHANNEL_POOLS.noise, usedChannels);
+      const channel = this.findFreeChannel([...CHANNEL_POOLS.noise], usedChannels);
       if (channel) {
         return {
           trackIndex: analysis.trackIndex,
@@ -5146,7 +5149,10 @@ var WarioSynthV2 = (() => {
         if (track.notes.length === 0) continue;
         const byChannel = /* @__PURE__ */ new Map();
         for (const note of track.notes) {
-          const ch = this.getNoteMidiChannel(note, track);
+          const ch = this.getNoteMidiChannel(
+            note,
+            track
+          );
           const bucket = byChannel.get(ch) ?? [];
           bucket.push({
             midi: note.midi,

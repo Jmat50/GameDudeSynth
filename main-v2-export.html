@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WarioSynth v2 Export</title>
+  <title>GameDudeSynth Export</title>
   <style>
     :root {
       --bg: #101114;
@@ -207,7 +207,7 @@
 <body>
   <div class="container">
     <section class="panel">
-      <h1>WarioSynth v2 - MIDI to WAV Export</h1>
+      <h1>GameDudeSynth — MIDI to WAV Export</h1>
       <p class="subtitle">Drop a MIDI, render with the v2 engine, and export a WAV to a chosen file path.</p>
     </section>
 
@@ -301,7 +301,7 @@
     const reviewHint = document.getElementById('reviewHint');
     const trackTableBody = document.getElementById('trackTableBody');
 
-    const GameBoyPlayer = window.WarioSynthV2?.GameBoyPlayer;
+    const GameBoyPlayer = window.GameDudeSynthV2?.GameBoyPlayer;
     const player = GameBoyPlayer ? new GameBoyPlayer() : null;
 
     const ROLES = ['lead', 'bass', 'harmony', 'pad', 'drums', 'fx'];
@@ -671,7 +671,7 @@
 
     if (!player) {
       setStatus('Engine failed to load.', 'warn');
-      log('WarioSynthV2.GameBoyPlayer missing from public/gameboy-player.iife.js');
+      log('GameDudeSynthV2.GameBoyPlayer missing from public/gameboy-player.iife.js');
     }
 
     if (window.location.protocol === 'file:' && player) {

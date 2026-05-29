@@ -1,5 +1,5 @@
 /**
- * Wario Synth v2 Type Definitions
+ * GameDudeSynth Type Definitions
  * 
  * Types specific to the Game Boy-authentic synthesis engine.
  */

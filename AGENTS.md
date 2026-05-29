@@ -1,10 +1,10 @@
-# WarioSynth — Agent Notes
+# GameDudeSynth — Agent Notes
 
-This repository is **WarioSynth**, a local Game Boy MIDI synthesis and WAV export tool. It is a separate project from MOTIF / wario.style (no search API, no embed, no Express backend).
+This repository is **GameDudeSynth**, a local Game Boy MIDI synthesis and WAV export tool.
 
 ## Primary user workflow
 
-1. User runs the local server (`server_gui.py`, `start_server_gui.bat`, or `WarioSynthServer.exe`).
+1. User runs the local server (`server_gui.py`, `start_server_gui.bat`, or `GameDudeSynthServer.exe`).
 2. User opens `main-v2-export.html` over HTTP (not `file://`).
 3. User loads a local `.mid` file, optionally adjusts the **track assignment** table, renders offline, exports WAV.
 
@@ -19,7 +19,7 @@ This repository is **WarioSynth**, a local Game Boy MIDI synthesis and WAV expor
 | Browser bundle | `public/gameboy-player.iife.js` (build with `npm run build:bundle`) |
 | Local server | `server_gui.py` |
 
-**Removed / out of scope:** `src/` (v1 Motif), `server/` (MIDI search/fetch API), hosted search UI pages.
+**Removed / out of scope:** legacy v1 synthesis tree, MIDI search/fetch API, hosted search UI pages.
 
 ## Engine pipeline
 
@@ -56,7 +56,7 @@ python server_gui.py          # or start_server_gui.bat
 
 - `server_gui.py` — Tkinter start/stop, serves repo root, `/` → `main-v2-export.html`.
 - `_resolve_serve_root()` walks up from `dist/` exe to find the project root.
-- `build_server_gui.bat` — PyInstaller → `WarioSynthServer.exe` in project root.
+- `build_server_gui.bat` — PyInstaller → `GameDudeSynthServer.exe` in project root.
 
 ## Definition of done (typical task)
 

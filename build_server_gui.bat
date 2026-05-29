@@ -17,7 +17,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo Building WarioSynthServer.exe...
+echo Building GameDudeSynthServer.exe...
 python -m PyInstaller --noconfirm --clean server_gui.spec
 if errorlevel 1 (
   echo Build failed.
@@ -26,12 +26,12 @@ if errorlevel 1 (
 )
 
 echo Copying launcher to project root...
-copy /Y "dist\WarioSynthServer.exe" "WarioSynthServer.exe" >nul
+copy /Y "dist\GameDudeSynthServer.exe" "GameDudeSynthServer.exe" >nul
 if errorlevel 1 (
-  echo Warning: could not copy exe to project root. Use dist\WarioSynthServer.exe from the repo folder.
+  echo Warning: could not copy exe to project root. Use dist\GameDudeSynthServer.exe from the repo folder.
 ) else (
-  echo Done: WarioSynthServer.exe ^(project root^) and dist\WarioSynthServer.exe
-  echo Run WarioSynthServer.exe from this folder, then Start Server in the GUI.
+  echo Done: GameDudeSynthServer.exe ^(project root^) and dist\GameDudeSynthServer.exe
+  echo Run GameDudeSynthServer.exe from this folder, then Start Server in the GUI.
 )
 echo.
 pause
