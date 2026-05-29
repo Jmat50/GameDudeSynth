@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WarioSynth v2 Export</title>
+  <style>
+    :root {
+      --bg: #101114;
+      --panel: #1b1e24;
+      --text: #e8ecf3;
+      --muted: #9aa4b2;
+      --accent: #67e8f9;
+      --ok: #4ade80;
+      --warn: #fbbf24;
+      --border: #2a2f38;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.4rem;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .drop-zone {
+      border: 2px dashed #3d4653;
+      border-radius: 12px;
+      padding: 28px;
+      text-align: center;
+      transition: border-color 0.15s ease, background 0.15s ease;
+      cursor: pointer;
+    }
+
+    .drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(103, 232, 249, 0.08);
+    }
+
+    input[type="file"] {
+      position: absolute;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    button, select, .button-like {
+      background: #0f131a;
+      color: var(--text);
+      border: 1px solid #313846;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.92rem;
+      display: inline-block;
+      text-decoration: none;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button.primary {
+      border-color: #00bcd4;
+      background: #102027;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      background: #12161d;
+      border: 1px solid #2a3039;
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .metric .value {
+      margin-top: 4px;
+      font-size: 1rem;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .status.ok {
+      color: var(--ok);
+    }
+
+    .status.warn {
+      color: var(--warn);
+    }
+
+    .logs {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      max-height: 200px;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.84rem;
+      color: #c8d1de;
+    }
+
+    .logs li {
+      padding: 4px 0;
+      border-bottom: 1px solid #222833;
+    }
+
+    #reviewPanel { display: none; }
+    #reviewPanel.visible { display: block; }
+
+    .review-hint {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin: 0 0 10px;
+    }
+
+    .track-table-wrap {
+      overflow-x: auto;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    table.track-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .track-table th,
+    .track-table td {
+      border: 1px solid #2a3039;
+      padding: 6px 8px;
+      text-align: left;
+    }
+
+    .track-table th {
+      background: #12161d;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .track-table tr.low-conf { background: rgba(251, 191, 36, 0.08); }
+    .track-table tr.noise-row { background: rgba(251, 146, 60, 0.1); }
+    .track-table tr.muted-row { opacity: 0.5; }
+
+    .track-table select {
+      padding: 4px 6px;
+      font-size: 0.82rem;
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="panel">
+      <h1>WarioSynth v2 - MIDI to WAV Export</h1>
+      <p class="subtitle">Drop a MIDI, render with the v2 engine, and export a WAV to a chosen file path.</p>
+    </section>
+
+    <section class="panel">
+      <div id="dropZone" class="drop-zone">
+        <p><strong>Drop a .mid/.midi file here</strong> or click to browse.</p>
+        <label id="browseBtn" for="midiInput" class="button-like">Browse MIDI File</label>
+        <input id="midiInput" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" />
+      </div>
+    </section>
+
+    <section id="reviewPanel" class="panel">
+      <strong>Track assignments</strong>
+      <p id="reviewHint" class="review-hint">Review detected roles before rendering. Override role, channel, mute, or primary lead.</p>
+      <div class="track-table-wrap">
+        <table class="track-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Instrument</th>
+              <th>MIDI ch</th>
+              <th>Role</th>
+              <th>Conf</th>
+              <th>Engine</th>
+              <th>Mute</th>
+              <th>Lead</th>
+            </tr>
+          </thead>
+          <tbody id="trackTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="row">
+        <button id="renderBtn" class="primary" disabled>Render WAV</button>
+        <button id="saveBtn" disabled>Export WAV</button>
+        <label>
+          Sample Rate
+          <select id="sampleRate">
+            <option value="44100">44100</option>
+            <option value="48000">48000</option>
+          </select>
+        </label>
+        <label>
+          Monophony
+          <select id="monoMode">
+            <option value="off">Off (dense mode)</option>
+            <option value="steal">On - steal old note</option>
+            <option value="skip">On - skip new note</option>
+          </select>
+        </label>
+      </div>
+      <p id="status" class="status">Waiting for MIDI file.</p>
+    </section>
+
+    <section class="panel">
+      <div class="kv">
+        <div class="metric"><div class="label">File</div><div id="mFile" class="value">-</div></div>
+        <div class="metric"><div class="label">Parts</div><div id="mTracks" class="value">-</div></div>
+        <div class="metric"><div class="label">Notes</div><div id="mNotes" class="value">-</div></div>
+        <div class="metric"><div class="label">Duration</div><div id="mDuration" class="value">-</div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <strong>Log</strong>
+      <ul id="logs" class="logs"></ul>
+    </section>
+  </div>
+
+  <script src="./public/gameboy-player.iife.js"></script>
+  <script>
+
+    const dropZone = document.getElementById('dropZone');
+    const browseBtn = document.getElementById('browseBtn');
+    const midiInput = document.getElementById('midiInput');
+    const renderBtn = document.getElementById('renderBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const sampleRateEl = document.getElementById('sampleRate');
+    const monoModeEl = document.getElementById('monoMode');
+    const statusEl = document.getElementById('status');
+    const logsEl = document.getElementById('logs');
+
+    const mFile = document.getElementById('mFile');
+    const mTracks = document.getElementById('mTracks');
+    const mNotes = document.getElementById('mNotes');
+    const mDuration = document.getElementById('mDuration');
+    const reviewPanel = document.getElementById('reviewPanel');
+    const reviewHint = document.getElementById('reviewHint');
+    const trackTableBody = document.getElementById('trackTableBody');
+
+    const GameBoyPlayer = window.WarioSynthV2?.GameBoyPlayer;
+    const player = GameBoyPlayer ? new GameBoyPlayer() : null;
+
+    const ROLES = ['lead', 'bass', 'harmony', 'pad', 'drums', 'fx'];
+    const CHANNELS = [
+      { id: '', label: '(auto — not mapped)' },
+      { id: 'p1', label: 'p1 — lead / melody pulse' },
+      { id: 'p2', label: 'p2 — secondary lead' },
+      { id: 'p3', label: 'p3 — harmony pulse' },
+      { id: 'p4', label: 'p4 — harmony / FX pulse' },
+      { id: 'w1', label: 'w1 — bass wave' },
+      { id: 'w2', label: 'w2 — pad / strings wave' },
+      { id: 'n1', label: 'n1 — drums (kick/snare)' },
+      { id: 'n2', label: 'n2 — drums / hats' },
+    ];
+
+    let currentFileName = '';
+    let currentMidiBuffer = null;
+    let renderedWavBlob = null;
+    let currentAnalysis = null;
+    let trackOverrides = [];
+
+    function log(message) {
+      const li = document.createElement('li');
+      li.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logsEl.appendChild(li);
+      logsEl.scrollTop = logsEl.scrollHeight;
+    }
+
+    function setStatus(text, kind = '') {
+      statusEl.textContent = text;
+      statusEl.className = `status ${kind}`;
+    }
+
+    function toMmSs(totalSeconds) {
+      const s = Math.max(0, Math.floor(totalSeconds));
+      const mm = Math.floor(s / 60);
+      const ss = String(s % 60).padStart(2, '0');
+      return `${mm}:${ss}`;
+    }
+
+    function audioBufferToWavBlob(buffer) {
+      const numChannels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
+      const bitsPerSample = 16;
+      const bytesPerSample = bitsPerSample / 8;
+      const frameCount = buffer.length;
+      const dataSize = frameCount * numChannels * bytesPerSample;
+      const headerSize = 44;
+      const ab = new ArrayBuffer(headerSize + dataSize);
+      const view = new DataView(ab);
+
+      function writeString(offset, str) {
+        for (let i = 0; i < str.length; i++) {
+          view.setUint8(offset + i, str.charCodeAt(i));
+        }
+      }
+
+      writeString(0, 'RIFF');
+      view.setUint32(4, 36 + dataSize, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+      view.setUint16(32, numChannels * bytesPerSample, true);
+      view.setUint16(34, bitsPerSample, true);
+      writeString(36, 'data');
+      view.setUint32(40, dataSize, true);
+
+      const channels = [];
+      for (let c = 0; c < numChannels; c++) {
+        channels.push(buffer.getChannelData(c));
+      }
+
+      let offset = headerSize;
+      for (let i = 0; i < frameCount; i++) {
+        for (let c = 0; c < numChannels; c++) {
+          const s = Math.max(-1, Math.min(1, channels[c][i]));
+          const int16 = s < 0 ? s * 0x8000 : s * 0x7fff;
+          view.setInt16(offset, int16, true);
+          offset += 2;
+        }
+      }
+
+      return new Blob([ab], { type: 'audio/wav' });
+    }
+
+    function getOverride(trackIndex) {
+      let o = trackOverrides.find(x => x.trackIndex === trackIndex);
+      if (!o) {
+        o = { trackIndex };
+        trackOverrides.push(o);
+      }
+      return o;
+    }
+
+    function rebuildOverridesFromTable() {
+      trackOverrides = [];
+      const rows = trackTableBody.querySelectorAll('tr[data-track-index]');
+      rows.forEach(row => {
+        const trackIndex = Number(row.dataset.trackIndex);
+        const o = { trackIndex };
+        const roleSel = row.querySelector('.role-select');
+        const chSel = row.querySelector('.channel-select');
+        const muteCb = row.querySelector('.mute-cb');
+        const leadRb = row.querySelector('.lead-rb');
+        if (roleSel?.value) o.role = roleSel.value;
+        if (chSel?.value) o.channelId = chSel.value;
+        else if (chSel && chSel.value === '') o.channelId = undefined;
+        if (muteCb?.checked) o.muted = true;
+        if (leadRb?.checked) o.isPrimaryLead = true;
+        if (o.role || o.channelId || o.muted || o.isPrimaryLead) {
+          trackOverrides.push(o);
+        }
+      });
+    }
+
+    function buildTrackReviewTable(analysis) {
+      trackTableBody.innerHTML = '';
+      const active = analysis.analyses.filter(a => a.noteCount > 0);
+      if (active.length === 0) {
+        reviewPanel.classList.remove('visible');
+        return;
+      }
+
+      const assignmentByTrack = new Map(
+        analysis.assignments.map(a => [a.trackIndex, a])
+      );
+
+      for (const a of active) {
+        const assign = assignmentByTrack.get(a.trackIndex);
+        const gb = assign?.channelId ?? '';
+        const confPct = Math.round((a.bestRoleConfidence ?? 0) * 100);
+        const lowConf = confPct < 50;
+        const onNoise = gb === 'n1' || gb === 'n2';
+        const unmapped = !gb && !a.muted;
+
+        const tr = document.createElement('tr');
+        tr.dataset.trackIndex = String(a.trackIndex);
+        if (lowConf) tr.classList.add('low-conf');
+        if (onNoise) tr.classList.add('noise-row');
+        if (a.muted) tr.classList.add('muted-row');
+
+        tr.innerHTML = `
+          <td>${a.trackIndex}</td>
+          <td>${escapeHtml(a.trackName || '(unnamed)')}</td>
+          <td>${escapeHtml(a.instrumentLabel || '—')}</td>
+          <td>${a.channel === 9 ? '10 (drums)' : a.channel + 1}</td>
+          <td><select class="role-select">${ROLES.map(r =>
+            `<option value="${r}" ${r === a.role ? 'selected' : ''}>${r}</option>`
+          ).join('')}</select></td>
+          <td>${confPct}%</td>
+          <td><select class="channel-select">${CHANNELS.map(c =>
+            `<option value="${c.id}" ${c.id === gb ? 'selected' : ''}>${c.label}</option>`
+          ).join('')}</select></td>
+          <td><input type="checkbox" class="mute-cb" ${a.muted ? 'checked' : ''} /></td>
+          <td><input type="radio" name="primaryLead" class="lead-rb" value="${a.trackIndex}" ${a.isPrimaryLead ? 'checked' : ''} /></td>
+        `;
+        trackTableBody.appendChild(tr);
+      }
+
+      reviewPanel.classList.add('visible');
+      const mapped = analysis.assignments.length;
+      reviewHint.textContent =
+        `${active.length} part(s) from ${analysis.trackCount} MIDI track(s). ` +
+        `${mapped} auto-mapped to engine channels (8 slots: p1–p4, w1–w2, n1–n2). ` +
+        'Assign role + engine per row; unmapped parts are skipped unless you pick a channel.';
+      if (analysis.needsReview) {
+        reviewHint.textContent =
+          'Review recommended — ' + reviewHint.textContent;
+        reviewHint.style.color = 'var(--warn)';
+      } else {
+        reviewHint.style.color = 'var(--muted)';
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    async function loadMidiFile(file) {
+      try {
+        setStatus('Reading MIDI...', '');
+        log(`Loading ${file.name}`);
+        const buffer = await file.arrayBuffer();
+        if (!player) {
+          throw new Error('v2 engine bundle is not loaded.');
+        }
+        trackOverrides = [];
+        const info = player.analyzeMIDI(buffer);
+        currentAnalysis = info;
+
+        currentMidiBuffer = buffer;
+        currentFileName = file.name.replace(/\.(mid|midi)$/i, '');
+        renderedWavBlob = null;
+
+        mFile.textContent = file.name;
+        const parts = info.partCount ?? info.analyses?.filter(x => x.noteCount > 0).length ?? info.trackCount;
+        mTracks.textContent = `${parts} (${info.trackCount} tracks)`;
+        mNotes.textContent = String(info.noteCount);
+        mDuration.textContent = toMmSs(info.duration);
+
+        buildTrackReviewTable(info);
+
+        renderBtn.disabled = false;
+        saveBtn.disabled = true;
+        const reviewMsg = info.needsReview
+          ? 'MIDI loaded — review track assignments, then render.'
+          : 'MIDI loaded. Ready to render.';
+        setStatus(reviewMsg, 'ok');
+        log(`MIDI analyzed: ${parts} parts, ${info.trackCount} file track(s), ${info.noteCount} notes, ${toMmSs(info.duration)}`);
+        if (info.needsReview) log('Assignment review suggested for this file.');
+      } catch (error) {
+        setStatus('Failed to parse MIDI.', 'warn');
+        log(`Error while loading MIDI: ${error.message}`);
+      }
+    }
+
+    function applyMonophonyChoice() {
+      if (!player) return;
+      const mode = monoModeEl.value;
+      if (mode === 'off') {
+        player.setChannelMonophony(false);
+        player.setMonophonyStrategy('steal');
+        return;
+      }
+      player.setChannelMonophony(true);
+      player.setMonophonyStrategy(mode === 'skip' ? 'skip' : 'steal');
+    }
+
+    async function renderWav() {
+      if (!currentMidiBuffer || !player) return;
+      try {
+        renderBtn.disabled = true;
+        saveBtn.disabled = true;
+        setStatus('Rendering WAV offline...', '');
+        applyMonophonyChoice();
+        rebuildOverridesFromTable();
+
+        const sampleRate = Number(sampleRateEl.value);
+        const started = performance.now();
+        const { buffer, info } = await player.renderOffline(
+          currentMidiBuffer,
+          sampleRate,
+          trackOverrides
+        );
+        const elapsedMs = Math.round(performance.now() - started);
+        renderedWavBlob = audioBufferToWavBlob(buffer);
+
+        setStatus('Render complete. Ready to export.', 'ok');
+        saveBtn.disabled = false;
+        log(`Rendered ${toMmSs(info.duration)} WAV at ${sampleRate} Hz in ${elapsedMs} ms`);
+      } catch (error) {
+        setStatus('Render failed.', 'warn');
+        log(`Render error: ${error.message}`);
+      } finally {
+        renderBtn.disabled = false;
+      }
+    }
+
+    async function exportWav() {
+      if (!renderedWavBlob) return;
+      const defaultName = `${currentFileName || 'export'}.wav`;
+
+      try {
+        if ('showSaveFilePicker' in window) {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: defaultName,
+            types: [
+              {
+                description: 'WAV Audio',
+                accept: { 'audio/wav': ['.wav'] },
+              },
+            ],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(renderedWavBlob);
+          await writable.close();
+          setStatus('WAV exported successfully.', 'ok');
+          log(`Saved WAV via file picker: ${defaultName}`);
+          return;
+        }
+
+        // Fallback if File System Access API is unavailable.
+        const url = URL.createObjectURL(renderedWavBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = defaultName;
+        a.click();
+        URL.revokeObjectURL(url);
+        setStatus('WAV downloaded (path picker unavailable in this browser).', 'warn');
+        log('File picker API unavailable; used browser download fallback.');
+      } catch (error) {
+        setStatus('Export canceled or failed.', 'warn');
+        log(`Export error: ${error.message}`);
+      }
+    }
+
+    function openFileDialog() {
+      midiInput.value = '';
+      midiInput.click();
+    }
+
+    dropZone.addEventListener('click', (e) => {
+      const target = e.target;
+      if (target instanceof HTMLElement) {
+        const tag = target.tagName.toLowerCase();
+        if (tag === 'button' || tag === 'label' || tag === 'input') {
+          return;
+        }
+      }
+      if (target instanceof HTMLLabelElement && target.htmlFor === 'midiInput') {
+        return;
+      }
+      openFileDialog();
+    });
+    // Do not attach an explicit click handler here:
+    // <label for="midiInput"> already triggers the file picker natively.
+    // Prevent browser default behavior (opening the dropped file instead of handling it).
+    window.addEventListener('dragover', (e) => e.preventDefault());
+    window.addEventListener('drop', (e) => e.preventDefault());
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const items = Array.from(e.dataTransfer?.items || []);
+      let file = null;
+      for (const item of items) {
+        if (item.kind === 'file') {
+          file = item.getAsFile();
+          if (file) break;
+        }
+      }
+      if (!file) {
+        const files = Array.from(e.dataTransfer?.files || []);
+        file = files[0] || null;
+      }
+      if (file) await loadMidiFile(file);
+      else {
+        setStatus('Drop failed: no file payload received.', 'warn');
+        log('Drop ignored: browser did not provide a readable file payload.');
+      }
+    });
+    midiInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        log(`Selected via picker: ${file.name}`);
+        await loadMidiFile(file);
+      } else {
+        log('Picker closed without file selection.');
+      }
+    });
+
+    renderBtn.addEventListener('click', renderWav);
+    saveBtn.addEventListener('click', exportWav);
+
+    if (!player) {
+      setStatus('Engine failed to load.', 'warn');
+      log('WarioSynthV2.GameBoyPlayer missing from public/gameboy-player.iife.js');
+    }
+
+    if (window.location.protocol === 'file:' && player) {
+      setStatus('Running from file:// mode.', 'ok');
+      log('Local file mode detected. Using bundled v2 engine for compatibility.');
+    } else {
+      log('Ready. Drop a MIDI file to begin.');
+    }
+  </script>
+</body>
+</html>

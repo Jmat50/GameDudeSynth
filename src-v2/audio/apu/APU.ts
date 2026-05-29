@@ -73,6 +73,10 @@ export class GameBoyAPU {
   
   // Track active audio nodes for stop functionality
   private activeNodes: Set<OscillatorNode | AudioBufferSourceNode> = new Set();
+  private activeNodeByChannel: Map<ChannelId, {
+    node: OscillatorNode | AudioBufferSourceNode;
+    stopTime: number;
+  }> = new Map();
   
   constructor(audioContext?: AudioContext, config?: Partial<V2Config>) {
     this.audioContext = audioContext || new AudioContext();
@@ -112,32 +116,32 @@ export class GameBoyAPU {
    * The limiter will catch peaks, but we want to minimize its work
    */
   private initializeChannels(): void {
-    // Create pulse channels (4 × 0.12 = 0.48 max)
+    // Create pulse channels (4 × 0.10 = 0.40 max)
     for (const config of CHANNEL_CONFIG.pulse) {
-      const gain = this.createChannelGain(config.id, 0.12);
+      const gain = this.createChannelGain(config.id, 0.10);
       const channel = new PulseChannel(this.audioContext, gain, config.hasSweep);
       channel.setDutyCycle(config.defaultDuty);
       this.pulseChannels.set(config.id, channel);
       this.initChannelState(config.id);
     }
     
-    // Create wave channels for bass (2 × 0.15 = 0.30 max)
+    // Create wave channels for bass/pad (2 × 0.14 = 0.28 max)
     for (const config of CHANNEL_CONFIG.wave) {
-      const gain = this.createChannelGain(config.id, 0.15);
+      const gain = this.createChannelGain(config.id, 0.14);
       const channel = new WaveChannel(this.audioContext, gain, config.preset);
       this.waveChannels.set(config.id, channel);
       this.initChannelState(config.id);
     }
     
-    // Create noise channels - MUTED for now
+    // Keep noise audible at low level so mapped drum tracks are not silently lost.
     for (const config of CHANNEL_CONFIG.noise) {
-      const gain = this.createChannelGain(config.id, 0);
+      const gain = this.createChannelGain(config.id, 0.06);
       const channel = new NoiseChannel(this.audioContext, gain, config.mode);
       this.noiseChannels.set(config.id, channel);
       this.initChannelState(config.id);
     }
   }
-  // Total max: 0.48 + 0.30 + 0.08 = 0.86 (limiter handles peaks)
+  // Total nominal: 0.40 + 0.28 + 0.12 = 0.80 (limiter handles peaks)
   
   /**
    * Create a gain node for a channel and connect to master.
@@ -188,12 +192,16 @@ export class GameBoyAPU {
   scheduleNote(note: ChannelNote): void {
     const { channel, midiNote, startTime, duration, velocity } = note;
     
+    if (!this.prepareChannelForNote(channel, startTime)) {
+      return;
+    }
+    
     if (channel.startsWith('p')) {
       this.schedulePulseNote(channel as PulseChannelId, midiNote, duration, velocity, startTime);
     } else if (channel.startsWith('w')) {
       this.scheduleWaveNote(channel as WaveChannelId, midiNote, duration, velocity, startTime);
     } else if (channel.startsWith('n')) {
-      this.scheduleNoiseNote(channel as NoiseChannelId, midiNote, duration, velocity, startTime);
+      this.scheduleNoiseNote(channel as NoiseChannelId, midiNote, duration, velocity, startTime, note.drumHit);
     }
     
     // Update channel state
@@ -215,7 +223,7 @@ export class GameBoyAPU {
     if (!channel) return;
     
     const result = channel.playNote(midiNote, duration, velocity, startTime);
-    this.trackNode(result.oscillator, result.stopTime);
+    this.trackNode(channelId, result.oscillator, result.stopTime);
   }
   
   /**
@@ -232,7 +240,7 @@ export class GameBoyAPU {
     if (!channel) return;
     
     const result = channel.playNote(midiNote, duration, velocity, startTime);
-    this.trackNode(result.oscillator, result.stopTime);
+    this.trackNode(channelId, result.oscillator, result.stopTime);
   }
   
   /**
@@ -243,26 +251,75 @@ export class GameBoyAPU {
     midiNote: number,
     duration: number,
     velocity: number,
-    startTime: number
+    startTime: number,
+    drumHit?: ChannelNote['drumHit']
   ): void {
     const channel = this.noiseChannels.get(channelId);
     if (!channel) return;
-    
-    const result = channel.playNote(midiNote, duration, velocity, startTime);
-    this.trackNode(result.source, result.stopTime);
+
+    let result;
+    switch (drumHit) {
+      case 'kick':
+        result = channel.playKick(velocity, startTime);
+        break;
+      case 'snare':
+        result = channel.playSnare(velocity, startTime);
+        break;
+      case 'hihat':
+        result = channel.playHihat(velocity, duration > 0.12, startTime);
+        break;
+      default:
+        result = channel.playNote(midiNote, duration, velocity, startTime);
+    }
+    this.trackNode(channelId, result.source, result.stopTime);
   }
   
   /**
    * Track an audio node for stop functionality.
    */
-  private trackNode(node: OscillatorNode | AudioBufferSourceNode, stopTime: number): void {
+  private trackNode(
+    channelId: ChannelId,
+    node: OscillatorNode | AudioBufferSourceNode,
+    stopTime: number
+  ): void {
     this.activeNodes.add(node);
+    this.activeNodeByChannel.set(channelId, { node, stopTime });
     
     // Auto-remove when the node ends naturally
     const cleanup = () => {
       this.activeNodes.delete(node);
+      const active = this.activeNodeByChannel.get(channelId);
+      if (active?.node === node) {
+        this.activeNodeByChannel.delete(channelId);
+      }
     };
     node.onended = cleanup;
+  }
+  
+  /**
+   * Handle monophony policy before scheduling a note on a channel.
+   * Returns false when the new note should be skipped.
+   */
+  private prepareChannelForNote(channelId: ChannelId, startTime: number): boolean {
+    if (!this.config.enforceChannelMonophony) return true;
+    
+    const active = this.activeNodeByChannel.get(channelId);
+    if (!active) return true;
+    
+    if (active.stopTime <= startTime) return true;
+    
+    if (this.config.monophonyStrategy === 'skip') {
+      return false;
+    }
+    
+    const cutTime = Math.max(this.audioContext.currentTime, startTime);
+    try {
+      active.node.stop(cutTime);
+    } catch {
+      // Node may already be stopped.
+    }
+    this.activeNodeByChannel.delete(channelId);
+    return true;
   }
   
   /**
@@ -381,6 +438,25 @@ export class GameBoyAPU {
   }
   
   /**
+   * Enable or disable strict one-note-per-channel behavior.
+   */
+  setChannelMonophony(enabled: boolean): void {
+    this.config.enforceChannelMonophony = enabled;
+  }
+  
+  getChannelMonophonyEnabled(): boolean {
+    return this.config.enforceChannelMonophony;
+  }
+  
+  setMonophonyStrategy(strategy: 'steal' | 'skip'): void {
+    this.config.monophonyStrategy = strategy;
+  }
+  
+  getMonophonyStrategy(): 'steal' | 'skip' {
+    return this.config.monophonyStrategy;
+  }
+  
+  /**
    * Get a pulse channel instance.
    */
   getPulseChannel(id: PulseChannelId): PulseChannel | undefined {
@@ -423,6 +499,7 @@ export class GameBoyAPU {
       this.initChannelState(id);
     }
     this.scheduledNoteCount = 0;
+    this.activeNodeByChannel.clear();
   }
   
   /**

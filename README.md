@@ -1,89 +1,72 @@
-# Wario Synthesis Engine 8-Bit Midi
+# WarioSynth
 
-![Wario Synth Logo](public/wariosynthlogo.png)
+Turn MIDI files into **Game Boy–style audio** and export WAV offline.
 
-Turn any song into a Game Boy version.
+WarioSynth is a standalone chiptune synthesis tool built around an 8-channel “Super Game Boy” engine (`src-v2/`): four pulse channels, two wave channels, and two noise channels. It analyzes MIDI tracks, assigns roles (lead, bass, drums, harmony), and renders through authentic-style oscillators and LFSR noise—no samples, no cloud backend.
 
-## Live Demo
+This repo is **not** the MOTIF search-and-play web app. There is no MIDI search API, embed widget, or server-side fetch layer here—only local file in, WAV out.
 
-**[www.wario.style](https://www.wario.style)**
+## Quick start (Windows)
 
-## About
-
-**WAH!** 🎮
-
-Type in literally any song. We'll find a MIDI file somewhere on the internet and absolutely demolish it through a janky homebrew Game Boy sound chip running in your browser.
-
-Is it accurate? Sometimes. Is it legal? Probably. Does it slap? **Absolutely.**
-
-Four glorious channels of chiptune chaos:
-- 🟨 **Pulse 1** — screamy lead melodies
-- 🟨 **Pulse 2** — whatever pulse 1 forgot
-- 🟩 **Wave** — chunky bass that hits different
-- ⬜ **Noise** — percussion (tssss pshhhh)
-
-Zero samples. Zero server audio. Just raw oscillators having the time of their lives.
-
-**[wario.style](https://www.wario.style)** ← go make your favorite song worse
-
-![Wario](public/wario-sprite.png)
-
-## Features
-
-- **MIDI search** from BitMidi and other sources
-- **Browser playback** with soundfont piano preview
-- **Wario Synthesis Engine**: procedural Game Boy-style synthesis from parsed MIDI structure
-- **Share links** with dynamic social previews
-- **Works on mobile** (iOS audio unlock included)
-
-## Quick Start (Local)
+1. Install [Node.js](https://nodejs.org/) and Python 3.
+2. From the project folder:
 
 ```bash
-# Install frontend deps
 npm install
-
-# Install backend deps
-cd server && npm install && cd ..
-
-# Run backend (http://localhost:3001)
-npm run dev:backend
-
-# Run frontend (Vite prints the URL, typically http://localhost:5173)
-npm run dev
 ```
 
-## How It Works
+3. Start the local server GUI:
 
-1. User searches for a song
-2. Backend searches MIDI sources and returns ranked candidates
-3. User picks a MIDI source
-4. Frontend parses MIDI into normalized note events
-5. Wario Synthesis Engine maps tracks to Game Boy sound channels
-6. Web Audio oscillators generate the retro sound
+- Double-click **`start_server_gui.bat`**, or  
+- Run **`WarioSynthServer.exe`** (after `build_server_gui.bat`), or  
+- Run `python server_gui.py`
 
-## Embed Widget
+4. Click **Start Server** → **Open in Browser**.
+5. Open **`http://127.0.0.1:3000/main-v2-export.html`**
+6. Drop a `.mid` file, review track assignments, **Render WAV**, **Export WAV**.
 
-WARIO SYNTH includes an embeddable widget at **`/embed`**:
+Hard-refresh the browser (`Ctrl+Shift+R`) after rebuilding the engine bundle.
 
-```html
-<iframe
-  src="https://www.wario.style/embed?song=Hotel%20California"
-  width="420"
-  height="260"
-  style="border:0;border-radius:12px;overflow:hidden"
-  allow="autoplay"
-></iframe>
+## Project layout
+
+| Path | Purpose |
+|------|---------|
+| `main-v2-export.html` | Export UI (drag/drop MIDI, track review, WAV export) |
+| `public/gameboy-player.iife.js` | Browser bundle (`WarioSynthV2.GameBoyPlayer`) |
+| `src-v2/` | Synthesis engine source (APU, MIDI mapping, offline render) |
+| `server_gui.py` | Local static HTTP server for the export page |
+| `scripts/process-local-midi-v2.ts` | CLI: MIDI → WAV (headless, no browser) |
+
+## npm scripts
+
+```bash
+npm run typecheck          # TypeScript check (src-v2 + scripts)
+npm run build:bundle       # Rebuild public/gameboy-player.iife.js from src-v2
+npm run process:midi -- "path/to/song.mid"   # CLI offline render → output/
+npm run test:track-analysis                  # Track role / drum routing regression checks
 ```
 
-## Tech Stack
+## Build the Windows server GUI (.exe)
 
-- **Frontend**: TypeScript, Vite, Web Audio API
-- **Backend**: Express, Node.js
-- **Deployment**: Vercel
-- **Built with**: Claude Code
+```bat
+build_server_gui.bat
+```
 
-## Credits
+Produces `dist/WarioSynthServer.exe` and copies it to the project root. Run the exe from this folder (same directory as `main-v2-export.html` and `public/`).
 
-A non-commercial project by [@b1rdmania](https://x.com/b1rdmania) for lols. Please don't sue me.
+## How it works
 
-![Wario Moment](public/wario.png)
+1. **Parse** — `@tonejs/midi` reads the file; multi-channel tracks are split into assignable parts.
+2. **Analyze** — Per-part role scores (lead, bass, drums, harmony, pad, fx) using pitch, density, monophony, and track names.
+3. **Allocate** — Global quotas (one lead, one bass, up to two drum tracks) and strict noise gating so melody is not sent to LFSR hiss.
+4. **Map** — Parts map to engine channels `p1`–`p4`, `w1`–`w2`, `n1`–`n2`.
+5. **Render** — `OfflineAudioContext` schedules notes; export page writes 16-bit WAV.
+
+## Requirements
+
+- Modern Chromium browser for the export page (File System Access API optional for save dialog).
+- Do **not** rely on `file://` for the export page—use the local HTTP server.
+
+## License
+
+MIT

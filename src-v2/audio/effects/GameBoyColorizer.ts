@@ -75,7 +75,7 @@ export class GameBoyColorizer {
     
     // Waveshaper for saturation
     this.waveshaper = audioContext.createWaveShaper();
-    this.waveshaper.curve = this.createSaturationCurve(this.config.saturation);
+    this.waveshaper.curve = this.createSaturationCurve(this.config.saturation) as Float32Array<ArrayBuffer>;
     this.waveshaper.oversample = '2x';
     
     // Limiter to prevent clipping - more aggressive settings
@@ -211,7 +211,7 @@ export class GameBoyColorizer {
     this.lowpassFilter.frequency.value = this.config.lowpassFreq;
     
     // Update saturation curve
-    this.waveshaper.curve = this.createSaturationCurve(this.config.saturation);
+    this.waveshaper.curve = this.createSaturationCurve(this.config.saturation) as Float32Array<ArrayBuffer>;
   }
   
   /**

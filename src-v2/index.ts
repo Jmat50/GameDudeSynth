@@ -15,7 +15,6 @@ export { NoiseChannel } from './audio/apu/NoiseChannel';
 
 // Synthesis primitives
 export { 
-  DUTY_PATTERNS,
   createDutyWave,
   createAllDutyWaves,
   getDutyDescription,
@@ -55,6 +54,8 @@ export {
 export { TrackAnalyzer, type MIDINote, type MIDITrack } from './audio/midi/TrackAnalyzer';
 export { Arpeggiator, type ArpeggiatorConfig } from './audio/midi/Arpeggiator';
 export { ChannelMapper, type ChannelMapperConfig } from './audio/midi/ChannelMapper';
+export { RoleAllocator, needsAssignmentReview } from './audio/midi/RoleAllocator';
+export { midiNoteToDrumHit } from './audio/midi/drumNoteMap';
 
 // Arranger (makes sparse MIDIs sound full like real GB music)
 export { GameBoyArranger, type ArrangerConfig, type ArrangementResult } from './audio/arranger/GameBoyArranger';

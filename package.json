@@ -1,38 +1,30 @@
 {
-  "name": "motif",
-  "version": "0.1.0",
-  "description": "Procedural Music Synthesis from MIDI Structure",
+  "name": "wariosynth",
+  "version": "0.2.0",
+  "description": "Game Boy-style MIDI synthesis with offline WAV export",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:backend": "cd server && npm run dev",
-    "dev:all": "npm run dev:backend & npm run dev",
-    "build": "tsc && vite build",
-    "build:backend": "cd server && npm run build",
-    "preview": "vite preview",
-    "lint": "eslint src --ext .ts,.tsx",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:bundle": "esbuild src-v2/core/GameBoyPlayer.ts --bundle --platform=browser --format=iife --global-name=WarioSynthV2 --outfile=public/gameboy-player.iife.js",
+    "process:midi": "npx vite-node scripts/process-local-midi-v2.ts",
+    "test:track-analysis": "npx vite-node scripts/test-track-analysis.ts"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
-    "eslint": "^8.0.0",
+    "esbuild": "^0.25.0",
+    "node-web-audio-api": "^2.0.0",
     "typescript": "^5.0.0",
     "vite": "^5.0.0"
   },
   "dependencies": {
-    "@tonejs/midi": "^2.0.28",
-    "lamejs": "^1.2.1",
-    "soundfont-player": "^0.12.0",
-    "tone": "^15.1.22"
+    "@tonejs/midi": "^2.0.28"
   },
   "keywords": [
-    "web-audio",
-    "procedural-synthesis",
+    "chiptune",
+    "game-boy",
     "midi",
-    "music-generation"
+    "web-audio",
+    "wav-export"
   ],
-  "author": "",
   "license": "MIT"
 }

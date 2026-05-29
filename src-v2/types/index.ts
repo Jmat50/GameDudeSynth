@@ -25,6 +25,8 @@ export interface ChannelNote {
   startTime: number;      // In seconds from playback start
   duration: number;       // In seconds
   velocity: number;       // 0-127
+  /** When set, noise channel uses shaped drum hits instead of raw LFSR note mapping */
+  drumHit?: DrumHitType;
 }
 
 /**
@@ -60,12 +62,22 @@ export interface NoiseChannelConfig {
  */
 export type TrackRole = 'drums' | 'bass' | 'lead' | 'harmony' | 'pad' | 'fx';
 
+export type DrumHitType = 'kick' | 'snare' | 'hihat' | 'noise';
+
+/**
+ * Per-role confidence scores (0-1) from TrackAnalyzer
+ */
+export type RoleConfidenceMap = Partial<Record<TrackRole, number>>;
+
 /**
  * Analysis result for a single MIDI track
  */
 export interface TrackAnalysis {
   trackIndex: number;
   channel: number;                    // MIDI channel (0-15, 9 = drums)
+  trackName?: string;
+  /** GM or MIDI meta instrument label when available */
+  instrumentLabel?: string;
   isDrums: boolean;
   isPercussive: boolean;
   noteRange: {
@@ -73,14 +85,51 @@ export interface TrackAnalysis {
     max: number;
     avg: number;
   };
+  medianPitch: number;
   noteDensity: number;                // Notes per second
   complexity: number;                 // 0-1 score
   hasChords: boolean;
+  polyphonyRatio: number;             // 0-1 simultaneous overlap
+  isMonophonic: boolean;
+  hasPhraseContinuity: boolean;
+  repetitionScore: number;            // 0-1
   avgVelocity: number;
   avgDuration: number;
   noteCount: number;
   role: TrackRole;
+  roleConfidence: RoleConfidenceMap;
+  bestRoleConfidence: number;
+  drumConfidence: number;             // 0-1 likelihood this is percussion
   priority: number;                   // Higher = more important
+  muted: boolean;
+  isPrimaryLead: boolean;
+}
+
+/**
+ * User overrides for track assignment (export UI / API)
+ */
+export interface TrackOverride {
+  trackIndex: number;
+  role?: TrackRole;
+  channelId?: ChannelId;
+  muted?: boolean;
+  isPrimaryLead?: boolean;
+}
+
+/**
+ * Full analysis payload for UI review
+ */
+export interface MIDIAnalysisResult {
+  duration: number;
+  /** Raw track count from the MIDI file */
+  trackCount: number;
+  /** Logical parts after per-channel split (what the assignment table uses) */
+  partCount: number;
+  noteCount: number;
+  bpm: number;
+  analyses: TrackAnalysis[];
+  assignments: ChannelAssignment[];
+  needsReview: boolean;
 }
 
 /**
@@ -120,6 +169,8 @@ export interface V2Config {
   masterVolume: number;               // 0-1
   lookaheadTime: number;              // Scheduling lookahead in seconds
   scheduleInterval: number;           // Scheduler interval in ms
+  enforceChannelMonophony: boolean;   // true = one active note per channel
+  monophonyStrategy: 'steal' | 'skip'; // steal = cut old note, skip = drop new note
 }
 
 /**
@@ -129,6 +180,8 @@ export const DEFAULT_V2_CONFIG: V2Config = {
   masterVolume: 0.7,
   lookaheadTime: 0.1,
   scheduleInterval: 25,
+  enforceChannelMonophony: false,
+  monophonyStrategy: 'steal',
 };
 
 /**

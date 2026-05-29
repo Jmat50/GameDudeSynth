@@ -1,171 +1,216 @@
 /**
- * Channel Mapper
- * 
- * Intelligently assigns MIDI tracks to the 8 GB channels based on
- * track analysis results. Prioritizes the most important tracks
- * and assigns them to the most appropriate channel types.
+ * Channel Mapper — maps allocated track roles to Game Boy APU channels.
  */
 
 import { TrackAnalyzer, type MIDITrack } from './TrackAnalyzer';
-import type { 
-  ChannelAssignment, 
-  TrackAnalysis, 
+import { RoleAllocator } from './RoleAllocator';
+import type {
+  ChannelAssignment,
   ChannelId,
   PulseChannelId,
-  WaveChannelId,
-  NoiseChannelId,
-  TrackRole
+  TrackAnalysis,
+  TrackOverride,
+  TrackRole,
 } from '../../types';
 import type { DutyIndex } from '../synthesis/DutyCycle';
 import type { WavePreset } from '../synthesis/WaveTable';
 import type { LFSRMode } from '../synthesis/LFSR';
 
-/**
- * Channel mapping configuration
- */
 export interface ChannelMapperConfig {
-  /** Maximum tracks to assign (limits complexity) */
   maxTracks: number;
-  
-  /** Whether to arpeggiate harmony tracks */
+  allowChannelReuse: boolean;
   arpeggiateHarmony: boolean;
-  
-  /** Default duty cycle for lead channels */
   leadDuty: DutyIndex;
-  
-  /** Default duty cycle for harmony channels */
   harmonyDuty: DutyIndex;
 }
 
 const DEFAULT_CONFIG: ChannelMapperConfig = {
-  maxTracks: 8,     // Full 8 GB channels
-  arpeggiateHarmony: true,  // Re-enabled for classic GB sound
-  leadDuty: 2,      // 50% for full sound
-  harmonyDuty: 1,   // 25% for thinner, less intrusive sound
+  maxTracks: 64,
+  allowChannelReuse: true,
+  arpeggiateHarmony: true,
+  leadDuty: 2,
+  harmonyDuty: 1,
 };
 
-/**
- * Available channel pools by type
- */
 const CHANNEL_POOLS = {
   pulse: ['p1', 'p2', 'p3', 'p4'] as PulseChannelId[],
-  wave: ['w1', 'w2'] as WaveChannelId[],
-  noise: ['n1', 'n2'] as NoiseChannelId[],
+  wave: ['w1', 'w2'] as const,
+  noise: ['n1', 'n2'] as const,
 };
+
+const NOISE_CHANNELS: ChannelId[] = ['n1', 'n2'];
 
 export class ChannelMapper {
   private analyzer: TrackAnalyzer;
+  private allocator: RoleAllocator;
   private config: ChannelMapperConfig;
-  
+
   constructor(config: Partial<ChannelMapperConfig> = {}) {
     this.analyzer = new TrackAnalyzer();
+    this.allocator = new RoleAllocator();
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
-  
-  /**
-   * Update configuration.
-   */
+
   setConfig(config: Partial<ChannelMapperConfig>): void {
     this.config = { ...this.config, ...config };
   }
-  
+
   /**
-   * Map MIDI tracks to GB channels.
-   * Returns an array of channel assignments.
+   * Full pipeline: analyze → allocate roles → map to GB channels.
    */
-  mapTracks(tracks: MIDITrack[]): ChannelAssignment[] {
-    // Analyze all tracks
-    const analyses = this.analyzer.analyzeTracks(tracks);
-    
-    // Filter out empty tracks
-    const nonEmptyAnalyses = analyses.filter(a => a.noteCount > 0);
-    
-    // Track used channels
-    const usedChannels = new Set<ChannelId>();
-    
-    // Assign channels in priority order
-    const assignments: ChannelAssignment[] = [];
-    
-    for (const analysis of nonEmptyAnalyses) {
-      if (assignments.length >= this.config.maxTracks) break;
-      
-      const assignment = this.assignChannel(analysis, usedChannels);
-      if (assignment) {
-        assignments.push(assignment);
-        usedChannels.add(assignment.channelId);
+  mapTracks(tracks: MIDITrack[], overrides: TrackOverride[] = []): {
+    assignments: ChannelAssignment[];
+    analyses: TrackAnalysis[];
+  } {
+    const raw = this.analyzer.analyzeTracks(tracks);
+    const analyses = this.allocator.allocate(raw, overrides);
+    let assignments = this.mapFromAnalyses(analyses);
+    assignments = this.applyChannelOverrides(assignments, overrides, analyses);
+    return { assignments, analyses };
+  }
+
+  /**
+   * Apply user channel overrides; add rows for manual channel picks not auto-mapped.
+   */
+  applyChannelOverrides(
+    assignments: ChannelAssignment[],
+    overrides: TrackOverride[],
+    analyses: TrackAnalysis[]
+  ): ChannelAssignment[] {
+    let result = assignments.map(a => {
+      const o = overrides.find(x => x.trackIndex === a.trackIndex);
+      if (o?.channelId) {
+        return { ...a, channelId: o.channelId };
       }
+      return a;
+    });
+
+    if (overrides.length === 0) return result;
+
+    for (const o of overrides) {
+      if (!o.channelId || o.muted) continue;
+      if (result.some(a => a.trackIndex === o.trackIndex)) continue;
+      const analysis = analyses.find(a => a.trackIndex === o.trackIndex);
+      if (!analysis || analysis.noteCount === 0) continue;
+      result.push(this.assignmentFromOverride(analysis, o));
     }
-    
-    return assignments;
+
+    return result;
   }
-  
-  /**
-   * Assign a single track to a channel.
-   */
-  private assignChannel(
+
+  private assignmentFromOverride(
     analysis: TrackAnalysis,
-    usedChannels: Set<ChannelId>
-  ): ChannelAssignment | null {
-    const { role, hasChords } = analysis;
-    
-    // Route to appropriate channel type based on role
-    switch (role) {
-      case 'drums':
-        return this.assignDrums(analysis, usedChannels);
-      
-      case 'bass':
-        return this.assignBass(analysis, usedChannels);
-      
-      case 'lead':
-        return this.assignLead(analysis, usedChannels);
-      
-      case 'harmony':
-        return this.assignHarmony(analysis, usedChannels, hasChords);
-      
-      case 'pad':
-        return this.assignPad(analysis, usedChannels);
-      
-      case 'fx':
-        return this.assignFX(analysis, usedChannels);
-      
-      default:
-        // Fallback to any available pulse channel
-        return this.assignToAnyPulse(analysis, usedChannels);
-    }
-  }
-  
-  /**
-   * Assign drums to noise channels.
-   */
-  private assignDrums(
-    analysis: TrackAnalysis,
-    usedChannels: Set<ChannelId>
-  ): ChannelAssignment | null {
-    // Try noise channels first
-    const channel = this.findFreeChannel(CHANNEL_POOLS.noise, usedChannels);
-    
-    if (!channel) return null;
-    
-    // Use 7-bit for kick/snare, 15-bit for hihats
-    // Default to 7-bit as it's punchier
-    const noiseMode: LFSRMode = '7bit';
-    
+    override: TrackOverride
+  ): ChannelAssignment {
+    const role = override.role ?? analysis.role;
+    const channelId = override.channelId!;
+    const isPulse = channelId.startsWith('p');
+    const isWave = channelId.startsWith('w');
+    const isNoise = channelId.startsWith('n');
+
     return {
       trackIndex: analysis.trackIndex,
-      channelId: channel,
-      shouldArpeggiate: false,
-      noiseMode,
+      channelId,
+      shouldArpeggiate: role === 'harmony' && analysis.hasChords,
+      ...(isPulse ? { dutyCycle: role === 'lead' ? this.config.leadDuty : this.config.harmonyDuty } : {}),
+      ...(isWave ? { wavePreset: role === 'bass' ? 'bass' : 'pad' } : {}),
+      ...(isNoise ? { noiseMode: '7bit' as const } : {}),
     };
   }
-  
-  /**
-   * Assign bass to wave channel.
-   */
+
+  mapFromAnalyses(analyses: TrackAnalysis[]): ChannelAssignment[] {
+    const usedChannels = new Set<ChannelId>();
+    const assignments: ChannelAssignment[] = [];
+
+    const sorted = [...analyses]
+      .filter(a => !a.muted && a.noteCount > 0)
+      .sort((a, b) => {
+        if (a.isPrimaryLead) return -1;
+        if (b.isPrimaryLead) return 1;
+        return b.priority - a.priority;
+      });
+
+    for (const analysis of sorted) {
+      if (assignments.length >= this.config.maxTracks) break;
+
+      const assignment = this.assignChannel(analysis, usedChannels, assignments);
+      if (assignment) {
+        assignments.push(assignment);
+        if (!this.config.allowChannelReuse) {
+          usedChannels.add(assignment.channelId);
+        } else {
+          usedChannels.add(assignment.channelId);
+        }
+      }
+    }
+
+    return assignments;
+  }
+
+  private assignChannel(
+    analysis: TrackAnalysis,
+    usedChannels: Set<ChannelId>,
+    existingAssignments: ChannelAssignment[]
+  ): ChannelAssignment | null {
+    const { role, hasChords, isPrimaryLead } = analysis;
+
+    if (role === 'drums' && analysis.isDrums) {
+      return this.assignDrums(analysis, usedChannels, existingAssignments);
+    }
+
+    switch (role) {
+      case 'bass':
+        return this.assignBass(analysis, usedChannels, existingAssignments);
+      case 'lead':
+        return this.assignLead(analysis, usedChannels, existingAssignments, isPrimaryLead);
+      case 'harmony':
+        return this.assignHarmony(analysis, usedChannels, existingAssignments, hasChords);
+      case 'pad':
+        return this.assignPad(analysis, usedChannels, existingAssignments);
+      case 'fx':
+        return this.assignFX(analysis, usedChannels, existingAssignments);
+      default:
+        return this.assignToAnyPulse(analysis, usedChannels, existingAssignments);
+    }
+  }
+
+  private assignDrums(
+    analysis: TrackAnalysis,
+    usedChannels: Set<ChannelId>,
+    existingAssignments: ChannelAssignment[]
+  ): ChannelAssignment | null {
+    if (!analysis.isDrums) return null;
+
+    const channel = this.findFreeChannel([...CHANNEL_POOLS.noise], usedChannels);
+    if (channel) {
+      return {
+        trackIndex: analysis.trackIndex,
+        channelId: channel,
+        shouldArpeggiate: false,
+        noiseMode: channel === 'n2' ? '15bit' : '7bit',
+      };
+    }
+
+    if (this.config.allowChannelReuse) {
+      const reusable = this.findReusableChannel('drums', existingAssignments);
+      if (reusable && NOISE_CHANNELS.includes(reusable)) {
+        return {
+          trackIndex: analysis.trackIndex,
+          channelId: reusable as 'n1' | 'n2',
+          shouldArpeggiate: false,
+          noiseMode: '7bit',
+        };
+      }
+    }
+
+    return null;
+  }
+
   private assignBass(
     analysis: TrackAnalysis,
-    usedChannels: Set<ChannelId>
+    usedChannels: Set<ChannelId>,
+    existingAssignments: ChannelAssignment[]
   ): ChannelAssignment | null {
-    // Prefer w1 for bass
     if (!usedChannels.has('w1')) {
       return {
         trackIndex: analysis.trackIndex,
@@ -174,8 +219,6 @@ export class ChannelMapper {
         wavePreset: 'bass' as WavePreset,
       };
     }
-    
-    // Fall back to w2
     if (!usedChannels.has('w2')) {
       return {
         trackIndex: analysis.trackIndex,
@@ -184,29 +227,46 @@ export class ChannelMapper {
         wavePreset: 'bass' as WavePreset,
       };
     }
-    
-    // No wave channels available, try pulse with low duty
+
     const pulseChannel = this.findFreeChannel(CHANNEL_POOLS.pulse, usedChannels);
     if (pulseChannel) {
       return {
         trackIndex: analysis.trackIndex,
         channelId: pulseChannel,
         shouldArpeggiate: false,
-        dutyCycle: 2 as DutyIndex, // 50% for fuller bass
+        dutyCycle: 2 as DutyIndex,
       };
     }
-    
+
+    const reusable = this.findReusableChannel('bass', existingAssignments);
+    if (reusable && !NOISE_CHANNELS.includes(reusable)) {
+      const isWave = reusable.startsWith('w');
+      return {
+        trackIndex: analysis.trackIndex,
+        channelId: reusable,
+        shouldArpeggiate: false,
+        ...(isWave ? { wavePreset: 'bass' as WavePreset } : { dutyCycle: 2 as DutyIndex }),
+      };
+    }
+
     return null;
   }
-  
-  /**
-   * Assign lead melody to pulse channels.
-   */
+
   private assignLead(
     analysis: TrackAnalysis,
-    usedChannels: Set<ChannelId>
+    usedChannels: Set<ChannelId>,
+    existingAssignments: ChannelAssignment[],
+    isPrimaryLead: boolean
   ): ChannelAssignment | null {
-    // Prefer p1 or p2 (sweep-capable) for lead
+    if (isPrimaryLead && !usedChannels.has('p1')) {
+      return {
+        trackIndex: analysis.trackIndex,
+        channelId: 'p1',
+        shouldArpeggiate: false,
+        dutyCycle: this.config.leadDuty,
+      };
+    }
+
     for (const channelId of ['p1', 'p2'] as PulseChannelId[]) {
       if (!usedChannels.has(channelId)) {
         return {
@@ -217,8 +277,7 @@ export class ChannelMapper {
         };
       }
     }
-    
-    // Fall back to p3/p4
+
     const channel = this.findFreeChannel(['p3', 'p4'] as PulseChannelId[], usedChannels);
     if (channel) {
       return {
@@ -228,39 +287,54 @@ export class ChannelMapper {
         dutyCycle: this.config.leadDuty,
       };
     }
-    
+
+    const reusable = this.findReusableChannel('lead', existingAssignments);
+    if (reusable && !NOISE_CHANNELS.includes(reusable)) {
+      return {
+        trackIndex: analysis.trackIndex,
+        channelId: reusable as PulseChannelId,
+        shouldArpeggiate: false,
+        dutyCycle: this.config.leadDuty,
+      };
+    }
+
     return null;
   }
-  
-  /**
-   * Assign harmony to pulse channels (with optional arpeggio).
-   */
+
   private assignHarmony(
     analysis: TrackAnalysis,
     usedChannels: Set<ChannelId>,
+    existingAssignments: ChannelAssignment[],
     hasChords: boolean
   ): ChannelAssignment | null {
-    // Use p3/p4 for harmony (thinner sound, no sweep)
-    const channel = this.findFreeChannel(['p3', 'p4', 'p1', 'p2'] as PulseChannelId[], usedChannels);
-    
-    if (!channel) return null;
-    
-    return {
-      trackIndex: analysis.trackIndex,
-      channelId: channel,
-      shouldArpeggiate: this.config.arpeggiateHarmony && hasChords,
-      dutyCycle: this.config.harmonyDuty,
-    };
+    const channel = this.findFreeChannel(['p3', 'p4', 'p2', 'p1'] as PulseChannelId[], usedChannels);
+    if (channel) {
+      return {
+        trackIndex: analysis.trackIndex,
+        channelId: channel,
+        shouldArpeggiate: this.config.arpeggiateHarmony && hasChords,
+        dutyCycle: this.config.harmonyDuty,
+      };
+    }
+
+    const reusable = this.findReusableChannel('harmony', existingAssignments);
+    if (reusable && !NOISE_CHANNELS.includes(reusable)) {
+      return {
+        trackIndex: analysis.trackIndex,
+        channelId: reusable as PulseChannelId,
+        shouldArpeggiate: this.config.arpeggiateHarmony && hasChords,
+        dutyCycle: this.config.harmonyDuty,
+      };
+    }
+
+    return null;
   }
-  
-  /**
-   * Assign pad to wave channel.
-   */
+
   private assignPad(
     analysis: TrackAnalysis,
-    usedChannels: Set<ChannelId>
+    usedChannels: Set<ChannelId>,
+    existingAssignments: ChannelAssignment[]
   ): ChannelAssignment | null {
-    // Prefer w2 for pads
     if (!usedChannels.has('w2')) {
       return {
         trackIndex: analysis.trackIndex,
@@ -269,8 +343,6 @@ export class ChannelMapper {
         wavePreset: 'pad' as WavePreset,
       };
     }
-    
-    // Fall back to w1
     if (!usedChannels.has('w1')) {
       return {
         trackIndex: analysis.trackIndex,
@@ -279,8 +351,7 @@ export class ChannelMapper {
         wavePreset: 'pad' as WavePreset,
       };
     }
-    
-    // Fall back to pulse
+
     const pulseChannel = this.findFreeChannel(CHANNEL_POOLS.pulse, usedChannels);
     if (pulseChannel) {
       return {
@@ -290,56 +361,78 @@ export class ChannelMapper {
         dutyCycle: 2 as DutyIndex,
       };
     }
-    
+
+    const reusable = this.findReusableChannel('pad', existingAssignments);
+    if (reusable && !NOISE_CHANNELS.includes(reusable)) {
+      const isWave = reusable.startsWith('w');
+      return {
+        trackIndex: analysis.trackIndex,
+        channelId: reusable,
+        shouldArpeggiate: false,
+        ...(isWave ? { wavePreset: 'pad' as WavePreset } : { dutyCycle: 2 as DutyIndex }),
+      };
+    }
+
     return null;
   }
-  
-  /**
-   * Assign FX/incidental to any available pulse channel.
-   */
+
   private assignFX(
     analysis: TrackAnalysis,
-    usedChannels: Set<ChannelId>
+    usedChannels: Set<ChannelId>,
+    existingAssignments: ChannelAssignment[]
   ): ChannelAssignment | null {
-    // FX goes to any available pulse channel
     const channel = this.findFreeChannel(CHANNEL_POOLS.pulse, usedChannels);
-    
-    if (!channel) return null;
-    
-    return {
-      trackIndex: analysis.trackIndex,
-      channelId: channel,
-      shouldArpeggiate: false,
-      dutyCycle: 0 as DutyIndex, // 12.5% for thin, effects-like sound
-    };
+    if (channel) {
+      return {
+        trackIndex: analysis.trackIndex,
+        channelId: channel,
+        shouldArpeggiate: false,
+        dutyCycle: 0 as DutyIndex,
+      };
+    }
+
+    const reusable = this.findReusableChannel('fx', existingAssignments);
+    if (reusable && !NOISE_CHANNELS.includes(reusable)) {
+      return {
+        trackIndex: analysis.trackIndex,
+        channelId: reusable as PulseChannelId,
+        shouldArpeggiate: false,
+        dutyCycle: 0 as DutyIndex,
+      };
+    }
+
+    return null;
   }
-  
-  /**
-   * Assign to any available pulse channel.
-   */
+
   private assignToAnyPulse(
     analysis: TrackAnalysis,
-    usedChannels: Set<ChannelId>
+    usedChannels: Set<ChannelId>,
+    existingAssignments: ChannelAssignment[]
   ): ChannelAssignment | null {
     const channel = this.findFreeChannel(CHANNEL_POOLS.pulse, usedChannels);
-    
-    if (!channel) return null;
-    
-    return {
-      trackIndex: analysis.trackIndex,
-      channelId: channel,
-      shouldArpeggiate: false,
-      dutyCycle: 2 as DutyIndex,
-    };
+    if (channel) {
+      return {
+        trackIndex: analysis.trackIndex,
+        channelId: channel,
+        shouldArpeggiate: false,
+        dutyCycle: 2 as DutyIndex,
+      };
+    }
+
+    const reusable = this.findReusableChannel('harmony', existingAssignments);
+    if (reusable && !NOISE_CHANNELS.includes(reusable)) {
+      return {
+        trackIndex: analysis.trackIndex,
+        channelId: reusable as PulseChannelId,
+        shouldArpeggiate: false,
+        dutyCycle: 2 as DutyIndex,
+      };
+    }
+
+    return null;
   }
-  
-  /**
-   * Find the first free channel from a pool.
-   */
-  private findFreeChannel<T extends ChannelId>(
-    pool: T[],
-    usedChannels: Set<ChannelId>
-  ): T | null {
+
+  private findFreeChannel<T extends ChannelId>(pool: T[], usedChannels: Set<ChannelId>): T | null {
     for (const channel of pool) {
       if (!usedChannels.has(channel)) {
         return channel;
@@ -347,17 +440,42 @@ export class ChannelMapper {
     }
     return null;
   }
-  
-  /**
-   * Get the analyzer for external use.
-   */
+
+  private findReusableChannel(
+    role: TrackRole,
+    existingAssignments: ChannelAssignment[]
+  ): ChannelId | null {
+    if (!this.config.allowChannelReuse) return null;
+    if (existingAssignments.length === 0) return null;
+
+    const byPreference: Record<TrackRole, ChannelId[]> = {
+      lead: ['p1', 'p2', 'p3', 'p4'],
+      harmony: ['p3', 'p4', 'p2', 'p1'],
+      bass: ['w1', 'w2', 'p3', 'p4'],
+      pad: ['w2', 'w1', 'p3', 'p4'],
+      drums: ['n1', 'n2'],
+      fx: ['p4', 'p3', 'p2', 'p1'],
+    };
+
+    const preferred = byPreference[role];
+    for (const channelId of preferred) {
+      if (role !== 'drums' && NOISE_CHANNELS.includes(channelId)) continue;
+      if (role === 'drums' && !NOISE_CHANNELS.includes(channelId)) continue;
+      if (existingAssignments.some(a => a.channelId === channelId)) {
+        return channelId;
+      }
+    }
+
+    const fallback = existingAssignments[existingAssignments.length - 1]?.channelId ?? null;
+    if (fallback && role !== 'drums' && NOISE_CHANNELS.includes(fallback)) return null;
+    if (fallback && role === 'drums' && !NOISE_CHANNELS.includes(fallback)) return null;
+    return fallback;
+  }
+
   getAnalyzer(): TrackAnalyzer {
     return this.analyzer;
   }
-  
-  /**
-   * Analyze tracks without mapping (useful for UI display).
-   */
+
   analyzeTracks(tracks: MIDITrack[]): TrackAnalysis[] {
     return this.analyzer.analyzeTracks(tracks);
   }
