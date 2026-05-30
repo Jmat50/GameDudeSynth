@@ -21,20 +21,33 @@ npm install
 - Run **`GameDudeSynthServer.exe`** (after `build_server_gui.bat`), or  
 - Run `python server_gui.py`
 
-4. Click **Start Server** → **Open in Browser**.
-5. Open **`http://127.0.0.1:3000/main-v2-export.html`**
-6. Drop a `.mid` file, review track assignments, **Render WAV**, **Export WAV**.
+4. Click **Start Server** → **Open Export** (or **Open Player** for the WAV menu).
+5. Export: **`http://127.0.0.1:3000/main-v2-export.html`** — drop a `.mid` file, review track assignments, **Render WAV**, **Export WAV**.
+6. Player: **`http://127.0.0.1:3000/gamedude-player.html`** — drop `.wav` files in `public/demos/`, power on the console, use D-pad + A/START.
 
-Hard-refresh the browser (`Ctrl+Shift+R`) after rebuilding the engine bundle.
+Hard-refresh the browser (`Ctrl+Shift+R`) after rebuilding bundles.
+
+## WAV player (Game Boy UI)
+
+- Page: `gamedude-player.html`
+- Drop folder: `public/demos/` (any `.wav` file)
+- Track list: `GET /demos/manifest.json` when using `server_gui.py` (auto-scans the folder)
+- Static fallback: `npm run demos:manifest` writes `public/demos/manifest.json`
+- Console shell vendored from [gameboycss](https://github.com/ManzDev/gameboycss) by ManzDev (ISC)
 
 ## Project layout
 
 | Path | Purpose |
 |------|---------|
 | `main-v2-export.html` | Export UI (drag/drop MIDI, track review, WAV export) |
+| `gamedude-player.html` | Game Boy shell WAV player (`public/demos/`) |
 | `public/gameboy-player.iife.js` | Browser bundle (`GameDudeSynthV2.GameBoyPlayer`) |
+| `public/gameboy-ui.iife.js` | WAV player UI bundle (Lit + Howler) |
+| `vendor/gameboycss/` | Vendored gameboycss console shell (ISC, ManzDev) |
 | `src-v2/` | Synthesis engine source (APU, MIDI mapping, offline render) |
-| `server_gui.py` | Local static HTTP server for the export page |
+| `src-player/` | WAV player menu screen + catalog |
+| `public/demos/` | Drop folder for player WAV tracks |
+| `server_gui.py` | Local static HTTP server + `/demos/manifest.json` |
 | `scripts/process-local-midi-v2.ts` | CLI: MIDI → WAV (headless, no browser) |
 
 ## npm scripts
@@ -42,6 +55,9 @@ Hard-refresh the browser (`Ctrl+Shift+R`) after rebuilding the engine bundle.
 ```bash
 npm run typecheck          # TypeScript check (src-v2 + scripts)
 npm run build:bundle       # Rebuild public/gameboy-player.iife.js from src-v2
+npm run build:player-ui    # Rebuild public/gameboy-ui.iife.js (WAV player page)
+npm run build:all          # Both bundles
+npm run demos:manifest     # Regenerate public/demos/manifest.json from folder scan
 npm run process:midi -- "path/to/song.mid"   # CLI offline render → output/
 npm run test:track-analysis                  # Track role / drum routing regression checks
 ```
@@ -69,4 +85,4 @@ Produces `dist/GameDudeSynthServer.exe` and copies it to the project root. Run t
 
 ## License
 
-MIT
+MIT. WAV player console shell includes components adapted from [gameboycss](https://github.com/ManzDev/gameboycss) (ISC, ManzDev) — see `vendor/gameboycss/README.md`.

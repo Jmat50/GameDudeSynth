@@ -6,6 +6,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build:bundle": "esbuild src-v2/index.ts --bundle --platform=browser --format=iife --global-name=GameDudeSynthV2 --outfile=public/gameboy-player.iife.js",
+    "build:player-ui": "esbuild src-player/index.js --bundle --platform=browser --format=iife --outfile=public/gameboy-ui.iife.js",
+    "build:all": "npm run build:bundle && npm run build:player-ui",
+    "demos:manifest": "node scripts/generate-demos-manifest.js",
     "process:midi": "npx vite-node scripts/process-local-midi-v2.ts",
     "test:track-analysis": "npx vite-node scripts/test-track-analysis.ts",
     "test:preview-window": "npx vite-node scripts/test-preview-window.ts"
@@ -18,7 +21,9 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
-    "@tonejs/midi": "^2.0.28"
+    "@tonejs/midi": "^2.0.28",
+    "howler": "^2.2.4",
+    "lit": "^3.3.3"
   },
   "keywords": [
     "chiptune",

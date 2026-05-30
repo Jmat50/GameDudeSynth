@@ -16,6 +16,7 @@ import sys
 import socket
 import threading
 import tkinter as tk
+import json
 from pathlib import Path
 from tkinter import messagebox
 from urllib.parse import urlparse
@@ -55,6 +56,12 @@ def _resolve_serve_root() -> Path:
 
 
 ROOT_DIR = _resolve_serve_root()
+DEMOS_DIR = ROOT_DIR / "public" / "demos"
+
+
+def _humanize_wav_title(stem: str) -> str:
+    title = stem.replace("-", " ").replace("_", " ")
+    return " ".join(part.capitalize() for part in title.split()) or stem
 
 
 class RootPageHandler(SimpleHTTPRequestHandler):
@@ -65,9 +72,32 @@ class RootPageHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):  # noqa: N802 (base class API)
         parsed = urlparse(self.path)
+        if parsed.path == "/demos/manifest.json":
+            self._serve_demos_manifest()
+            return
         if parsed.path == "/":
             self.path = f"/{DEFAULT_PAGE}"
         return super().do_GET()
+
+    def _serve_demos_manifest(self) -> None:
+        tracks = []
+        if DEMOS_DIR.is_dir():
+            for wav in sorted(DEMOS_DIR.glob("*.wav"), key=lambda p: p.name.lower()):
+                stem = wav.stem
+                tracks.append(
+                    {
+                        "id": stem,
+                        "title": _humanize_wav_title(stem),
+                        "url": f"/public/demos/{wav.name}",
+                    }
+                )
+        body = json.dumps({"tracks": tracks}, indent=2).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
 
     def log_message(self, fmt: str, *args):
         # Keep stdout quiet for GUI usage.
@@ -151,17 +181,20 @@ class App(tk.Tk):
         self.stop_btn = tk.Button(frame, text="Stop Server", width=14, command=self._stop_server, state="disabled")
         self.stop_btn.grid(row=0, column=3, padx=4)
 
-        self.open_btn = tk.Button(frame, text="Open in Browser", width=14, command=self._open_browser, state="disabled")
+        self.open_btn = tk.Button(frame, text="Open Export", width=14, command=self._open_browser, state="disabled")
         self.open_btn.grid(row=0, column=4, padx=(8, 0))
 
+        self.player_btn = tk.Button(frame, text="Open Player", width=14, command=self._open_player, state="disabled")
+        self.player_btn.grid(row=0, column=5, padx=(4, 0))
+
         tk.Label(frame, text="Status:").grid(row=1, column=0, sticky="w", pady=(12, 0))
-        tk.Label(frame, textvariable=self.status_var).grid(row=1, column=1, columnspan=4, sticky="w", pady=(12, 0))
+        tk.Label(frame, textvariable=self.status_var).grid(row=1, column=1, columnspan=5, sticky="w", pady=(12, 0))
 
         tk.Label(frame, text="URL:").grid(row=2, column=0, sticky="w", pady=(6, 0))
-        tk.Label(frame, textvariable=self.url_var, fg="blue").grid(row=2, column=1, columnspan=4, sticky="w", pady=(6, 0))
+        tk.Label(frame, textvariable=self.url_var, fg="blue").grid(row=2, column=1, columnspan=5, sticky="w", pady=(6, 0))
 
         tk.Label(frame, textvariable=self.log_var, wraplength=600, justify="left", fg="gray25").grid(
-            row=3, column=0, columnspan=5, sticky="w", pady=(10, 0)
+            row=3, column=0, columnspan=6, sticky="w", pady=(10, 0)
         )
 
     def _build_url(self, port: int) -> str:
@@ -218,6 +251,7 @@ class App(tk.Tk):
         self.start_btn.config(state="disabled")
         self.stop_btn.config(state="normal")
         self.open_btn.config(state="normal")
+        self.player_btn.config(state="normal")
 
     def _stop_server(self) -> None:
         if not self.controller.is_running():
@@ -228,11 +262,17 @@ class App(tk.Tk):
         self.start_btn.config(state="normal")
         self.stop_btn.config(state="disabled")
         self.open_btn.config(state="disabled")
+        self.player_btn.config(state="disabled")
 
     def _open_browser(self) -> None:
         if not self.controller.is_running() or self.controller.port is None:
             return
         webbrowser.open(self._build_url(self.controller.port))
+
+    def _open_player(self) -> None:
+        if not self.controller.is_running() or self.controller.port is None:
+            return
+        webbrowser.open(f"http://{HOST}:{self.controller.port}/gamedude-player.html")
 
     def _on_close(self) -> None:
         try:

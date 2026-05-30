@@ -1,0 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,700;1,700&family=Press+Start+2P&display=swap');
+
+@font-face {
+  font-family: Pretendo;
+  src:
+    url('../vendor/gameboycss/assets/pretendo.woff2') format('woff2'),
+    url('../vendor/gameboycss/assets/pretendo.woff') format('woff');
+}
+
+:root {
+  font-size: 18px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #000;
+  background-image:
+    repeating-linear-gradient(
+      132deg,
+      #000 0% 10%,
+      transparent 10% 11%,
+      #000 11% 21%,
+      transparent 21% 22%
+    ),
+    linear-gradient(50deg, #7e2e52 30%, #513a8d 60%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+  padding: 24px 16px 32px;
+  gap: 16px;
+}
+
+.page-header {
+  text-align: center;
+  color: #fff;
+}
+
+.page-header h1 {
+  font-family: 'Press Start 2P', sans-serif;
+  font-size: 1.1rem;
+  color: #8bac0f;
+  text-shadow: 2px 2px 0 #51640a;
+  margin: 0 0 8px;
+}
+
+.page-header .tagline {
+  font-family: Lato, sans-serif;
+  margin: 0 0 10px;
+  opacity: 0.85;
+}
+
+.page-header a {
+  color: #c78dff;
+  font-family: Lato, sans-serif;
+  font-size: 0.9rem;
+}
+
+.page-header a:hover {
+  color: #eaee09;
+}
+
+.help {
+  font-family: Lato, sans-serif;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  max-width: 420px;
+  margin: 0;
+}
+
+.help code {
+  font-size: 0.8rem;
+  color: #eaee09;
+}
+
+.page-footer {
+  font-family: Lato, sans-serif;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.65);
+  text-align: center;
+}
+
+.page-footer a {
+  color: #c78dff;
+}
+
+gameboy-console {
+  flex-shrink: 0;
+}
