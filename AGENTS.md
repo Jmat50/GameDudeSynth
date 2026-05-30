@@ -58,6 +58,7 @@ python server_gui.py          # or start_server_gui.bat
 - **Strict noise routing:** Only true drum tracks → `n1`/`n2`; use `playKick`/`playSnare`/`playHihat` when possible.
 - **Track review UI:** Show all MIDI parts; user overrides via `TrackOverride[]` passed to `renderOffline()`.
 - **Incremental diffs:** Prefer small changes in `src-v2/` over new infra.
+- **Commit `public/demos/`:** Always include demo WAV files and an updated `manifest.json` (`npm run demos:manifest`) when adding or changing player tracks.
 - **No new backend** unless explicitly requested—static server only.
 
 ## Windows GUI server
