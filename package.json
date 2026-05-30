@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build:bundle": "esbuild src-v2/core/GameBoyPlayer.ts --bundle --platform=browser --format=iife --global-name=GameDudeSynthV2 --outfile=public/gameboy-player.iife.js",
+    "build:bundle": "esbuild src-v2/index.ts --bundle --platform=browser --format=iife --global-name=GameDudeSynthV2 --outfile=public/gameboy-player.iife.js",
     "process:midi": "npx vite-node scripts/process-local-midi-v2.ts",
-    "test:track-analysis": "npx vite-node scripts/test-track-analysis.ts"
+    "test:track-analysis": "npx vite-node scripts/test-track-analysis.ts",
+    "test:preview-window": "npx vite-node scripts/test-preview-window.ts"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

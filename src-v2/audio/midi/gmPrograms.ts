@@ -1,5 +1,5 @@
 /** General MIDI program names (0–127), channel 10 uses drum map. */
-const GM_PROGRAMS: readonly string[] = [
+export const GM_PROGRAMS: readonly string[] = [
   'Acoustic Grand Piano', 'Bright Acoustic Piano', 'Electric Grand Piano', 'Honky-tonk Piano',
   'Electric Piano 1', 'Electric Piano 2', 'Harpsichord', 'Clavinet',
   'Celesta', 'Glockenspiel', 'Music Box', 'Vibraphone',
@@ -40,4 +40,17 @@ export function gmProgramLabel(program: number, midiChannel: number): string {
     return GM_PROGRAMS[program];
   }
   return `Program ${program}`;
+}
+
+export interface GmInstrumentOption {
+  program: number;
+  label: string;
+}
+
+/** All selectable GM instruments for a MIDI channel (drums = single kit). */
+export function listGmInstrumentOptions(midiChannel: number): GmInstrumentOption[] {
+  if (midiChannel === 9) {
+    return [{ program: 0, label: 'GM Drum Kit' }];
+  }
+  return GM_PROGRAMS.map((label, program) => ({ program, label }));
 }

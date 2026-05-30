@@ -2200,11 +2200,60 @@ var GameDudeSynthV2 = (() => {
     }
   });
 
-  // src-v2/core/GameBoyPlayer.ts
-  var GameBoyPlayer_exports = {};
-  __export(GameBoyPlayer_exports, {
-    GameBoyPlayer: () => GameBoyPlayer
+  // src-v2/index.ts
+  var index_exports = {};
+  __export(index_exports, {
+    Arpeggiator: () => Arpeggiator,
+    ChannelMapper: () => ChannelMapper,
+    DEFAULT_V2_CONFIG: () => DEFAULT_V2_CONFIG,
+    GM_PROGRAMS: () => GM_PROGRAMS,
+    GameBoyAPU: () => GameBoyAPU,
+    GameBoyArranger: () => GameBoyArranger,
+    GameBoyColorizer: () => GameBoyColorizer,
+    GameBoyPlayer: () => GameBoyPlayer,
+    LFSR: () => LFSR,
+    NoiseChannel: () => NoiseChannel,
+    PartPreviewPlayer: () => PartPreviewPlayer,
+    PulseChannel: () => PulseChannel,
+    RoleAllocator: () => RoleAllocator,
+    TrackAnalyzer: () => TrackAnalyzer,
+    WAVE_PRESETS: () => WAVE_PRESETS,
+    WaveChannel: () => WaveChannel,
+    WaveTable: () => WaveTable,
+    calculateNoiseFrequency: () => calculateNoiseFrequency,
+    calculatePulseFrequency: () => calculatePulseFrequency,
+    calculateWaveFrequency: () => calculateWaveFrequency,
+    createAllDutyWaves: () => createAllDutyWaves,
+    createDutyWave: () => createDutyWave,
+    createTestChannels: () => createTestChannels,
+    estimatePreviewPrepareMs: () => estimatePreviewPrepareMs,
+    generateBassWave: () => generateBassWave,
+    generateLeadWave: () => generateLeadWave,
+    generateNoiseBuffer: () => generateNoiseBuffer,
+    generatePadWave: () => generatePadWave,
+    generateSawtoothWave: () => generateSawtoothWave,
+    generateSineWave: () => generateSineWave,
+    generateSquareWave: () => generateSquareWave,
+    generateTriangleWave: () => generateTriangleWave,
+    getDutyDescription: () => getDutyDescription,
+    getFrequencyDeviation: () => getFrequencyDeviation,
+    gmProgramLabel: () => gmProgramLabel,
+    listGmInstrumentOptions: () => listGmInstrumentOptions,
+    midiNoteToDrumHit: () => midiNoteToDrumHit,
+    midiToStandardFrequency: () => midiToStandardFrequency,
+    needsAssignmentReview: () => needsAssignmentReview,
+    pickPreviewWindow: () => pickPreviewWindow,
+    previewNoteCap: () => previewNoteCap,
+    runAllAudioTests: () => runAllAudioTests,
+    runVerificationTests: () => runVerificationTests,
+    testCombined: () => testCombined,
+    testDutyCycles: () => testDutyCycles,
+    testNoiseChannel: () => testNoiseChannel,
+    testWaveChannel: () => testWaveChannel,
+    verifyLFSR: () => verifyLFSR
   });
+
+  // src-v2/core/GameBoyPlayer.ts
   var import_midi = __toESM(require_Midi(), 1);
 
   // src-v2/audio/synthesis/DutyCycle.ts
@@ -2232,6 +2281,15 @@ var GameDudeSynthV2 = (() => {
       createDutyWave(2, audioContext),
       createDutyWave(3, audioContext)
     ];
+  }
+  function getDutyDescription(dutyIndex) {
+    const descriptions = [
+      "12.5% - Thin, buzzy",
+      "25% - Classic chiptune",
+      "50% - Full square",
+      "75% - Bright, punchy"
+    ];
+    return descriptions[dutyIndex];
   }
 
   // src-v2/audio/synthesis/FrequencyCalc.ts
@@ -2278,6 +2336,11 @@ var GameDudeSynthV2 = (() => {
     const clockShift = Math.floor(14 - normalized / 72 * 14);
     const divisorCode = Math.floor(normalized % 8);
     return { divisorCode, clockShift };
+  }
+  function getFrequencyDeviation(midiNote) {
+    const standard = midiToStandardFrequency(midiNote);
+    const gbFreq = calculatePulseFrequency(midiNote);
+    return 1200 * Math.log2(gbFreq / standard);
   }
 
   // src-v2/audio/apu/PulseChannel.ts
@@ -2807,6 +2870,39 @@ var GameDudeSynthV2 = (() => {
       return sequence;
     }
   };
+  var LFSR_15BIT_EXPECTED = [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0
+  ];
+  function verifyLFSR() {
+    const lfsr = new LFSR("15bit");
+    const sequence = lfsr.generateSequence(20);
+    for (let i = 0; i < LFSR_15BIT_EXPECTED.length; i++) {
+      if (sequence[i] !== LFSR_15BIT_EXPECTED[i]) {
+        console.error(`LFSR mismatch at index ${i}: got ${sequence[i]}, expected ${LFSR_15BIT_EXPECTED[i]}`);
+        return false;
+      }
+    }
+    return true;
+  }
   function generateNoiseBuffer(audioContext, duration, frequency, mode = "15bit") {
     const sampleRate = audioContext.sampleRate;
     const bufferLength = Math.ceil(duration * sampleRate);
@@ -3759,6 +3855,12 @@ var GameDudeSynthV2 = (() => {
     }
     return `Program ${program}`;
   }
+  function listGmInstrumentOptions(midiChannel) {
+    if (midiChannel === 9) {
+      return [{ program: 0, label: "GM Drum Kit" }];
+    }
+    return GM_PROGRAMS.map((label, program) => ({ program, label }));
+  }
 
   // src-v2/audio/midi/TrackAnalyzer.ts
   var DRUM_NAME_RE = /\b(drum|drums|kit|perc|percussion|snare|kick|hihat|hi-hat|cymbal)\b/i;
@@ -3812,6 +3914,7 @@ var GameDudeSynthV2 = (() => {
         channel: track.channel,
         trackName: track.name,
         instrumentLabel,
+        program: track.channel === 9 ? void 0 : track.program,
         isDrums,
         isPercussive,
         noteRange,
@@ -5041,6 +5144,87 @@ var GameDudeSynthV2 = (() => {
     }
   };
 
+  // src-v2/audio/preview/previewWindow.ts
+  function previewNoteCap(durationSec) {
+    return Math.min(320, Math.max(80, Math.round(32 * durationSec)));
+  }
+  function estimatePreviewPrepareMs(noteCount) {
+    return Math.min(800, Math.max(80, Math.round(noteCount * 0.8)));
+  }
+  function pickPreviewWindow(notes, maxDurationSec) {
+    if (notes.length === 0) {
+      return { windowStart: 0, notes: [], duration: maxDurationSec };
+    }
+    const sorted = [...notes].sort((a, b) => a.time - b.time);
+    const lastEnd = sorted.reduce(
+      (max, n) => Math.max(max, n.time + n.duration),
+      0
+    );
+    const span = Math.max(lastEnd, maxDurationSec);
+    let bestStart = 0;
+    let bestCount = -1;
+    if (span <= maxDurationSec) {
+      bestStart = 0;
+      bestCount = sorted.length;
+    } else {
+      const step = Math.max(0.25, maxDurationSec / 8);
+      for (let start = 0; start <= span - maxDurationSec; start += step) {
+        const end = start + maxDurationSec;
+        let count = 0;
+        for (const n of sorted) {
+          if (n.time >= start && n.time < end) count++;
+        }
+        if (count > bestCount) {
+          bestCount = count;
+          bestStart = start;
+        }
+      }
+    }
+    const windowEnd = bestStart + maxDurationSec;
+    let windowNotes = sorted.filter((n) => n.time >= bestStart && n.time < windowEnd).map((n) => ({
+      midiNote: n.midi,
+      startTime: n.time - bestStart,
+      duration: Math.min(n.duration, windowEnd - n.time),
+      velocity: n.velocity
+    }));
+    const cap = previewNoteCap(maxDurationSec);
+    if (windowNotes.length > cap) {
+      windowNotes = thinNotesToCap(windowNotes, cap);
+    }
+    const actualEnd = windowNotes.reduce(
+      (max, n) => Math.max(max, n.startTime + n.duration),
+      0
+    );
+    const duration = Math.min(maxDurationSec, Math.max(actualEnd, 0.1));
+    return {
+      windowStart: bestStart,
+      notes: windowNotes,
+      duration
+    };
+  }
+  function thinNotesToCap(notes, cap) {
+    const byStart = /* @__PURE__ */ new Map();
+    for (const n of notes) {
+      const key = Math.round(n.startTime * 1e3);
+      const bucket = byStart.get(key) ?? [];
+      bucket.push(n);
+      byStart.set(key, bucket);
+    }
+    const kept = [];
+    for (const bucket of byStart.values()) {
+      bucket.sort((a, b) => b.velocity - a.velocity);
+      kept.push(bucket[0]);
+    }
+    kept.sort((a, b) => a.startTime - b.startTime);
+    if (kept.length <= cap) return kept;
+    const stride = kept.length / cap;
+    const out = [];
+    for (let i = 0; i < cap; i++) {
+      out.push(kept[Math.floor(i * stride)]);
+    }
+    return out;
+  }
+
   // src-v2/core/GameBoyPlayer.ts
   var DEFAULT_PLAYER_CONFIG = {
     autoResume: true,
@@ -5070,6 +5254,9 @@ var GameDudeSynthV2 = (() => {
     // Schedule 2 seconds ahead
     SCHEDULER_INTERVAL_MS = 250;
     // Check every 250ms
+    previewAudioContext = null;
+    previewApu = null;
+    previewGbStopTimer = null;
     constructor(config = {}) {
       this.config = { ...DEFAULT_PLAYER_CONFIG, ...config };
       this.apu = new GameBoyAPU(void 0, this.config);
@@ -5101,6 +5288,7 @@ var GameDudeSynthV2 = (() => {
       this.arpeggiator.setBPM(bpm);
       this.arranger.setBPM(bpm);
       const tracks = this.convertMIDITracks(midi);
+      this.applyProgramOverrides(tracks, overrides);
       const { assignments } = this.mapper.mapTracks(tracks, overrides);
       const nonEmptyTrackCount = tracks.filter((t) => t.notes.length > 0).length;
       const droppedTrackCount = Math.max(0, nonEmptyTrackCount - assignments.length);
@@ -5203,6 +5391,7 @@ var GameDudeSynthV2 = (() => {
       this.arpeggiator.setBPM(bpm);
       this.arranger.setBPM(bpm);
       const tracks = this.convertMIDITracks(midi);
+      this.applyProgramOverrides(tracks, overrides);
       const { assignments } = this.mapper.mapTracks(tracks, overrides);
       const totalDuration = midi.duration + 0.5;
       const totalSamples = Math.ceil(totalDuration * sampleRate);
@@ -5414,6 +5603,7 @@ var GameDudeSynthV2 = (() => {
     analyzeMIDI(midiData, overrides = []) {
       const midi = new import_midi.Midi(midiData);
       const tracks = this.convertMIDITracks(midi);
+      this.applyProgramOverrides(tracks, overrides);
       const { assignments, analyses } = this.mapper.mapTracks(tracks, overrides);
       const partsWithNotes = analyses.filter((a) => a.noteCount > 0);
       return {
@@ -5433,6 +5623,7 @@ var GameDudeSynthV2 = (() => {
     mapTracksWithOverrides(midiData, overrides = []) {
       const midi = new import_midi.Midi(midiData);
       const tracks = this.convertMIDITracks(midi);
+      this.applyProgramOverrides(tracks, overrides);
       return this.mapper.mapTracks(tracks, overrides);
     }
     /**
@@ -5441,6 +5632,430 @@ var GameDudeSynthV2 = (() => {
     getTrackAnalysis(midiData) {
       return this.analyzeMIDI(midiData).analyses;
     }
+    /**
+     * Build a short excerpt of one logical part for preview playback.
+     */
+    buildTrackPreviewClip(midiData, trackIndex, overrides = [], options = {}) {
+      const maxDurationSec = options.maxDurationSec ?? 10;
+      const midi = new import_midi.Midi(midiData);
+      const bpm = midi.header.tempos[0]?.bpm || this.config.defaultBPM;
+      this.arpeggiator.setBPM(bpm);
+      const tracks = this.convertMIDITracks(midi);
+      this.applyProgramOverrides(tracks, overrides);
+      const track = tracks[trackIndex];
+      if (!track || track.notes.length === 0) return null;
+      const { assignments, analyses } = this.mapper.mapTracks(tracks, overrides);
+      const analysis = analyses.find((a) => a.trackIndex === trackIndex);
+      const assignment = assignments.find((a) => a.trackIndex === trackIndex);
+      const { notes, duration } = pickPreviewWindow(track.notes, maxDurationSec);
+      let previewNotes = notes;
+      if (assignment?.shouldArpeggiate && previewNotes.length > 0) {
+        const arpNotes = this.arpeggiator.arpeggiate(
+          previewNotes.map((n) => ({
+            midiNote: n.midiNote,
+            time: n.startTime,
+            duration: n.duration,
+            velocity: n.velocity
+          }))
+        );
+        previewNotes = arpNotes.map((n) => ({
+          midiNote: n.midiNote,
+          startTime: n.time,
+          duration: n.duration,
+          velocity: n.velocity
+        }));
+      }
+      return {
+        trackIndex,
+        duration,
+        isDrums: analysis?.isDrums ?? track.channel === 9,
+        program: track.program,
+        notes: previewNotes,
+        assignment
+      };
+    }
+    /**
+     * Preview one part through the Game Boy APU (export timbre).
+     */
+    async previewTrackGB(clip) {
+      if (!clip.assignment) {
+        throw new Error("Assign an engine channel to preview export sound");
+      }
+      const ctx = await this.ensurePreviewContext();
+      const apu = this.previewApu;
+      await apu.resume();
+      apu.stopAll();
+      if (this.previewGbStopTimer) {
+        clearTimeout(this.previewGbStopTimer);
+        this.previewGbStopTimer = null;
+      }
+      this.applyChannelSettings(clip.assignment, apu);
+      const gbNotes = this.previewNotesToChannelNotes(clip.notes, clip.assignment);
+      const startAt = ctx.currentTime + 0.05;
+      for (const note of gbNotes) {
+        apu.scheduleNote({
+          ...note,
+          startTime: startAt + note.startTime
+        });
+      }
+      return new Promise((resolve) => {
+        this.previewGbStopTimer = setTimeout(() => {
+          apu.stopAll();
+          this.previewGbStopTimer = null;
+          resolve();
+        }, clip.duration * 1e3 + 200);
+      });
+    }
+    /**
+     * Stop GB preview APU if running.
+     */
+    stopPreviewGB() {
+      if (this.previewGbStopTimer) {
+        clearTimeout(this.previewGbStopTimer);
+        this.previewGbStopTimer = null;
+      }
+      this.previewApu?.stopAll();
+    }
+    async ensurePreviewContext() {
+      if (!this.previewAudioContext) {
+        this.previewAudioContext = new AudioContext();
+        this.previewApu = new GameBoyAPU(this.previewAudioContext, this.config);
+      }
+      if (this.previewAudioContext.state === "suspended") {
+        await this.previewAudioContext.resume();
+      }
+      return this.previewAudioContext;
+    }
+    /**
+     * Apply user GM program picks before analysis / preview / render.
+     */
+    applyProgramOverrides(tracks, overrides) {
+      for (const o of overrides) {
+        if (o.program === void 0) continue;
+        const track = tracks[o.trackIndex];
+        if (!track || track.channel === 9) continue;
+        const program = Math.max(0, Math.min(127, Math.floor(o.program)));
+        track.program = program;
+        track.instrumentName = gmProgramLabel(program, track.channel);
+      }
+    }
+    previewNotesToChannelNotes(notes, assignment) {
+      const isNoise = assignment.channelId.startsWith("n");
+      return notes.map((note) => ({
+        channel: assignment.channelId,
+        midiNote: note.midiNote,
+        startTime: note.startTime,
+        duration: note.duration,
+        velocity: note.velocity,
+        ...isNoise ? { drumHit: midiNoteToDrumHit(note.midiNote) } : {}
+      }));
+    }
   };
-  return __toCommonJS(GameBoyPlayer_exports);
+
+  // src-v2/audio/preview/PartPreviewPlayer.ts
+  var PartPreviewPlayer = class {
+    audioContext = null;
+    masterGain = null;
+    activeNodes = [];
+    playResolve = null;
+    playReject = null;
+    endTimer = null;
+    progressTimer = null;
+    stoppedEarly = false;
+    async play(clip, options = {}) {
+      this.stop(true);
+      this.stoppedEarly = false;
+      const ctx = await this.ensureContext();
+      const master = this.masterGain;
+      if (clip.notes.length === 0) {
+        return;
+      }
+      const startAt = ctx.currentTime + 0.05;
+      const totalSec = clip.duration;
+      return new Promise((resolve, reject) => {
+        this.playResolve = resolve;
+        this.playReject = reject;
+        for (const note of clip.notes) {
+          const when = startAt + note.startTime;
+          const vel = note.velocity / 127;
+          if (clip.isDrums) {
+            this.scheduleDrumHit(ctx, master, note.midiNote, when, note.duration, vel);
+          } else {
+            this.scheduleMelodicNote(
+              ctx,
+              master,
+              note.midiNote,
+              when,
+              note.duration,
+              vel,
+              clip.program
+            );
+          }
+        }
+        if (options.onProgress) {
+          const t0 = performance.now();
+          this.progressTimer = setInterval(() => {
+            const elapsed = (performance.now() - t0) / 1e3;
+            options.onProgress(Math.min(elapsed, totalSec), totalSec);
+          }, 250);
+        }
+        this.endTimer = setTimeout(() => {
+          this.finishPlay();
+        }, totalSec * 1e3 + 120);
+      });
+    }
+    stop(silent = false) {
+      this.stoppedEarly = true;
+      if (this.endTimer) {
+        clearTimeout(this.endTimer);
+        this.endTimer = null;
+      }
+      if (this.progressTimer) {
+        clearInterval(this.progressTimer);
+        this.progressTimer = null;
+      }
+      for (const node of this.activeNodes) {
+        try {
+          if (node instanceof OscillatorNode || node instanceof AudioBufferSourceNode) {
+            node.stop();
+          }
+          node.disconnect();
+        } catch {
+        }
+      }
+      this.activeNodes = [];
+      if (!silent && this.playReject) {
+        this.playReject(new Error("Preview stopped"));
+      }
+      this.playReject = null;
+      this.playResolve = null;
+    }
+    finishPlay() {
+      if (this.progressTimer) {
+        clearInterval(this.progressTimer);
+        this.progressTimer = null;
+      }
+      this.endTimer = null;
+      const resolve = this.playResolve;
+      this.playResolve = null;
+      this.playReject = null;
+      resolve?.();
+    }
+    async ensureContext() {
+      if (!this.audioContext) {
+        this.audioContext = new AudioContext();
+        this.masterGain = this.audioContext.createGain();
+        this.masterGain.gain.value = 0.3;
+        this.masterGain.connect(this.audioContext.destination);
+      }
+      if (this.audioContext.state === "suspended") {
+        await this.audioContext.resume();
+      }
+      return this.audioContext;
+    }
+    trackNode(node) {
+      this.activeNodes.push(node);
+    }
+    scheduleMelodicNote(ctx, master, midiNote, when, duration, velocity, program) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = brightProgram(program) ? "square" : "triangle";
+      osc.frequency.value = midiToStandardFrequency(midiNote);
+      const dur = Math.max(0.03, Math.min(duration, 2));
+      const peak = velocity * 0.45;
+      gain.gain.setValueAtTime(1e-3, when);
+      gain.gain.linearRampToValueAtTime(peak, when + 8e-3);
+      gain.gain.exponentialRampToValueAtTime(1e-3, when + dur);
+      osc.connect(gain);
+      gain.connect(master);
+      osc.start(when);
+      osc.stop(when + dur + 0.02);
+      this.trackNode(osc);
+      this.trackNode(gain);
+    }
+    scheduleDrumHit(ctx, master, midiNote, when, duration, velocity) {
+      const hit = midiNoteToDrumHit(midiNote);
+      const dur = Math.max(0.04, Math.min(duration, hit === "hihat" ? 0.12 : 0.35));
+      const peak = velocity * (hit === "kick" ? 0.55 : 0.4);
+      const bufferLen = Math.ceil(ctx.sampleRate * dur);
+      const buffer = ctx.createBuffer(1, bufferLen, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      if (hit === "kick") {
+        for (let i = 0; i < bufferLen; i++) {
+          const t = i / ctx.sampleRate;
+          const env = Math.exp(-t * 18);
+          data[i] = Math.sin(2 * Math.PI * 80 * t) * env * peak;
+        }
+      } else {
+        for (let i = 0; i < bufferLen; i++) {
+          const t = i / ctx.sampleRate;
+          const env = Math.exp(-t * (hit === "hihat" ? 40 : 22));
+          data[i] = (Math.random() * 2 - 1) * env * peak;
+        }
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      const gain = ctx.createGain();
+      gain.gain.value = 1;
+      src.connect(gain);
+      gain.connect(master);
+      src.start(when);
+      src.stop(when + dur);
+      this.trackNode(src);
+      this.trackNode(gain);
+    }
+  };
+  function brightProgram(program) {
+    if (program === void 0) return false;
+    return program === 80 || program === 81 || program === 62 || program === 56;
+  }
+
+  // src-v2/audio/test/soundTest.ts
+  function runVerificationTests() {
+    const results = [];
+    const lfsrOk = verifyLFSR();
+    results.push({
+      name: "LFSR Sequence",
+      passed: lfsrOk,
+      message: lfsrOk ? "LFSR matches expected GB sequence" : "LFSR sequence mismatch!"
+    });
+    const devA4 = getFrequencyDeviation(69);
+    const devOk = Math.abs(devA4) > 0.01 && Math.abs(devA4) < 10;
+    results.push({
+      name: "Frequency Deviation",
+      passed: devOk,
+      message: `A4 deviation: ${devA4.toFixed(2)} cents (expected small non-zero value)`
+    });
+    return results;
+  }
+  function createTestChannels(audioContext) {
+    const masterGain = audioContext.createGain();
+    masterGain.gain.value = 0.5;
+    masterGain.connect(audioContext.destination);
+    const pulseGain = audioContext.createGain();
+    pulseGain.gain.value = 0.4;
+    pulseGain.connect(masterGain);
+    const waveGain = audioContext.createGain();
+    waveGain.gain.value = 0.5;
+    waveGain.connect(masterGain);
+    const noiseGain = audioContext.createGain();
+    noiseGain.gain.value = 0.4;
+    noiseGain.connect(masterGain);
+    return {
+      pulse: new PulseChannel(audioContext, pulseGain, true),
+      wave: new WaveChannel(audioContext, waveGain, "bass"),
+      noise: new NoiseChannel(audioContext, noiseGain, "15bit"),
+      masterGain
+    };
+  }
+  async function testDutyCycles(pulse, audioContext) {
+    console.log("Testing duty cycles...");
+    const duties = [0, 1, 2, 3];
+    const dutyNames = ["12.5%", "25%", "50%", "75%"];
+    for (let i = 0; i < duties.length; i++) {
+      console.log(`  Playing duty cycle ${dutyNames[i]}`);
+      pulse.setDutyCycle(duties[i]);
+      const notes = [60, 64, 67, 72];
+      const now = audioContext.currentTime;
+      notes.forEach((note, idx) => {
+        pulse.playNote(note, 0.15, 100, now + idx * 0.2);
+      });
+      await sleep(1e3);
+    }
+    console.log("Duty cycle test complete!");
+  }
+  async function testWaveChannel(wave, audioContext) {
+    console.log("Testing wave channel...");
+    const presets = ["bass", "pad", "lead", "triangle", "sawtooth"];
+    for (const preset of presets) {
+      console.log(`  Playing preset: ${preset}`);
+      wave.loadPreset(preset);
+      const notes = [36, 36, 43, 41];
+      const now = audioContext.currentTime;
+      notes.forEach((note, idx) => {
+        wave.playNote(note, 0.4, 100, now + idx * 0.5);
+      });
+      await sleep(2200);
+    }
+    console.log("Wave channel test complete!");
+  }
+  async function testNoiseChannel(noise, audioContext) {
+    console.log("Testing noise channel...");
+    console.log("  Testing 15-bit mode (full noise)");
+    noise.setMode("15bit");
+    let now = audioContext.currentTime;
+    noise.playHihat(80, false, now);
+    noise.playHihat(60, false, now + 0.25);
+    noise.playHihat(80, false, now + 0.5);
+    noise.playHihat(60, true, now + 0.75);
+    await sleep(1500);
+    console.log("  Testing 7-bit mode (metallic)");
+    noise.setMode("7bit");
+    now = audioContext.currentTime;
+    noise.playKick(100, now);
+    noise.playSnare(90, now + 0.5);
+    noise.playKick(100, now + 1);
+    noise.playSnare(90, now + 1.5);
+    await sleep(2200);
+    console.log("  Testing frequency range");
+    now = audioContext.currentTime;
+    for (let i = 0; i < 8; i++) {
+      noise.playNote(36 + i * 6, 0.2, 80, now + i * 0.25);
+    }
+    await sleep(2500);
+    console.log("Noise channel test complete!");
+  }
+  async function testCombined(pulse, wave, noise, audioContext) {
+    console.log("Testing combined playback...");
+    const bpm = 120;
+    const beatDuration = 60 / bpm;
+    const now = audioContext.currentTime;
+    pulse.setDutyCycle(2);
+    wave.loadPreset("bass");
+    noise.setMode("7bit");
+    for (let bar = 0; bar < 4; bar++) {
+      const barStart = now + bar * 4 * beatDuration;
+      const bassNotes = [36, 36, 43, 41];
+      wave.playNote(bassNotes[bar], beatDuration * 3.5, 90, barStart);
+      const melodyNotes = [
+        [60, 64, 67],
+        // Bar 1: C E G
+        [64, 67, 72],
+        // Bar 2: E G C
+        [67, 71, 74],
+        // Bar 3: G B D
+        [65, 69, 72]
+        // Bar 4: F A C
+      ];
+      melodyNotes[bar].forEach((note, i) => {
+        pulse.playNote(note, beatDuration * 0.9, 80, barStart + i * beatDuration);
+      });
+      noise.playKick(100, barStart);
+      noise.playHihat(60, false, barStart + beatDuration * 0.5);
+      noise.playSnare(90, barStart + beatDuration);
+      noise.playHihat(60, false, barStart + beatDuration * 1.5);
+      noise.playKick(80, barStart + beatDuration * 2);
+      noise.playHihat(60, false, barStart + beatDuration * 2.5);
+      noise.playSnare(90, barStart + beatDuration * 3);
+      noise.playHihat(60, true, barStart + beatDuration * 3.5);
+    }
+    await sleep(4 * 4 * beatDuration * 1e3 + 500);
+    console.log("Combined test complete!");
+  }
+  async function runAllAudioTests(audioContext) {
+    const { pulse, wave, noise } = createTestChannels(audioContext);
+    console.log("=== GameDudeSynth Audio Tests ===\n");
+    await testDutyCycles(pulse, audioContext);
+    await sleep(500);
+    await testWaveChannel(wave, audioContext);
+    await sleep(500);
+    await testNoiseChannel(noise, audioContext);
+    await sleep(500);
+    await testCombined(pulse, wave, noise, audioContext);
+    console.log("\n=== All Audio Tests Complete ===");
+  }
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+  return __toCommonJS(index_exports);
 })();

@@ -196,11 +196,17 @@
     .track-table tr.low-conf { background: rgba(251, 191, 36, 0.08); }
     .track-table tr.noise-row { background: rgba(251, 146, 60, 0.1); }
     .track-table tr.muted-row { opacity: 0.5; }
+    .track-table tr.preview-playing { outline: 1px solid var(--accent); }
 
     .track-table select {
       padding: 4px 6px;
       font-size: 0.82rem;
       max-width: 100%;
+    }
+
+    .track-table select.instrument-select {
+      min-width: 10rem;
+      max-width: 14rem;
     }
   </style>
 </head>
@@ -235,6 +241,7 @@
               <th>Engine</th>
               <th>Mute</th>
               <th>Lead</th>
+              <th>Preview</th>
             </tr>
           </thead>
           <tbody id="trackTableBody"></tbody>
@@ -260,6 +267,10 @@
             <option value="steal">On - steal old note</option>
             <option value="skip">On - skip new note</option>
           </select>
+        </label>
+        <label>
+          <input type="checkbox" id="previewGbMode" />
+          Preview export sound (Game Boy)
         </label>
       </div>
       <p id="status" class="status">Waiting for MIDI file.</p>
@@ -300,9 +311,15 @@
     const reviewPanel = document.getElementById('reviewPanel');
     const reviewHint = document.getElementById('reviewHint');
     const trackTableBody = document.getElementById('trackTableBody');
+    const previewGbModeEl = document.getElementById('previewGbMode');
 
-    const GameBoyPlayer = window.GameDudeSynthV2?.GameBoyPlayer;
+    const synth = window.GameDudeSynthV2;
+    const GameBoyPlayer = synth?.GameBoyPlayer;
+    const PartPreviewPlayer = synth?.PartPreviewPlayer;
+    const estimatePreviewPrepareMs = synth?.estimatePreviewPrepareMs;
+    const listGmInstrumentOptions = synth?.listGmInstrumentOptions;
     const player = GameBoyPlayer ? new GameBoyPlayer() : null;
+    const partPreview = PartPreviewPlayer ? new PartPreviewPlayer() : null;
 
     const ROLES = ['lead', 'bass', 'harmony', 'pad', 'drums', 'fx'];
     const CHANNELS = [
@@ -322,6 +339,132 @@
     let renderedWavBlob = null;
     let currentAnalysis = null;
     let trackOverrides = [];
+    /** trackIndex → GM program detected from MIDI (unchanged after user edits) */
+    let autoDetectedPrograms = new Map();
+    let previewInProgress = false;
+    let previewPlayingTrackIndex = null;
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function formatPreviewTime(sec) {
+      const s = Math.max(0, Math.floor(sec));
+      const mm = Math.floor(s / 60);
+      const ss = String(s % 60).padStart(2, '0');
+      return `${mm}:${ss}`;
+    }
+
+    function setPreviewButtonsDisabled(disabled) {
+      trackTableBody.querySelectorAll('.preview-btn').forEach(btn => {
+        btn.disabled = disabled || btn.dataset.hasNotes === '0';
+      });
+      if (disabled) renderBtn.disabled = true;
+      else if (currentMidiBuffer && player) renderBtn.disabled = false;
+    }
+
+    function clearPreviewRowHighlight() {
+      trackTableBody.querySelectorAll('tr.preview-playing').forEach(tr => {
+        tr.classList.remove('preview-playing');
+      });
+      previewPlayingTrackIndex = null;
+    }
+
+    async function stopActivePreview() {
+      partPreview?.stop(true);
+      player?.stopPreviewGB?.();
+      clearPreviewRowHighlight();
+    }
+
+    async function playTrackPreview(trackIndex) {
+      if (!currentMidiBuffer || !player || previewInProgress) return;
+
+      const analysisRow = currentAnalysis?.analyses?.find(a => a.trackIndex === trackIndex);
+      if (!analysisRow || analysisRow.noteCount === 0) return;
+
+      const gbMode = previewGbModeEl?.checked === true;
+      const maxDurationSec = 10;
+
+      await stopActivePreview();
+      previewInProgress = true;
+      setPreviewButtonsDisabled(true);
+
+      const tr = trackTableBody.querySelector(`tr[data-track-index="${trackIndex}"]`);
+      tr?.classList.add('preview-playing');
+      previewPlayingTrackIndex = trackIndex;
+
+      try {
+        rebuildOverridesFromTable();
+        setStatus('Preparing preview…', '');
+        const t0 = performance.now();
+        const clip = player.buildTrackPreviewClip(
+          currentMidiBuffer,
+          trackIndex,
+          trackOverrides,
+          { maxDurationSec }
+        );
+        const buildMs = performance.now() - t0;
+
+        if (!clip || clip.notes.length === 0) {
+          setStatus('No notes in preview window for this part.', 'warn');
+          log(`Preview skipped: part ${trackIndex} has no notes in window`);
+          return;
+        }
+
+        const waitMs = Math.max(
+          buildMs,
+          estimatePreviewPrepareMs ? estimatePreviewPrepareMs(clip.notes.length) : 80
+        );
+        await sleep(waitMs);
+
+        const totalLabel = formatPreviewTime(clip.duration);
+
+        if (gbMode) {
+          if (!clip.assignment) {
+            setStatus('Assign an engine channel to preview export sound.', 'warn');
+            log('GB preview needs a mapped engine channel; use lightweight preview or pick a channel.');
+            if (partPreview) {
+              setStatus(`Previewing part ${trackIndex} (lightweight fallback)…`, '');
+              await partPreview.play(clip, {
+                onProgress: (elapsed, total) => {
+                  setStatus(
+                    `Previewing part ${trackIndex} (${formatPreviewTime(elapsed)} / ${formatPreviewTime(total)})`,
+                    ''
+                  );
+                },
+              });
+            }
+            return;
+          }
+          setStatus(`Previewing part ${trackIndex} (export sound, ${totalLabel})…`, '');
+          await player.previewTrackGB(clip);
+          setStatus(`Preview finished — part ${trackIndex}.`, 'ok');
+          log(`GB preview: part ${trackIndex}, ${clip.notes.length} notes, ${totalLabel}`);
+        } else if (partPreview) {
+          await partPreview.play(clip, {
+            onProgress: (elapsed, total) => {
+              setStatus(
+                `Previewing part ${trackIndex} (${formatPreviewTime(elapsed)} / ${formatPreviewTime(total)})`,
+                ''
+              );
+            },
+          });
+          setStatus(`Preview finished — part ${trackIndex}.`, 'ok');
+          log(`Lightweight preview: part ${trackIndex}, ${clip.notes.length} notes, ${totalLabel}`);
+        } else {
+          setStatus('Preview player not loaded.', 'warn');
+        }
+      } catch (error) {
+        if (error?.message !== 'Preview stopped') {
+          setStatus('Preview failed.', 'warn');
+          log(`Preview error: ${error.message}`);
+        }
+      } finally {
+        previewInProgress = false;
+        clearPreviewRowHighlight();
+        setPreviewButtonsDisabled(false);
+      }
+    }
 
     function log(message) {
       const li = document.createElement('li');
@@ -407,15 +550,17 @@
         const trackIndex = Number(row.dataset.trackIndex);
         const o = { trackIndex };
         const roleSel = row.querySelector('.role-select');
+        const instSel = row.querySelector('.instrument-select');
         const chSel = row.querySelector('.channel-select');
         const muteCb = row.querySelector('.mute-cb');
         const leadRb = row.querySelector('.lead-rb');
         if (roleSel?.value) o.role = roleSel.value;
+        if (instSel?.value !== '') o.program = Number(instSel.value);
         if (chSel?.value) o.channelId = chSel.value;
         else if (chSel && chSel.value === '') o.channelId = undefined;
         if (muteCb?.checked) o.muted = true;
         if (leadRb?.checked) o.isPrimaryLead = true;
-        if (o.role || o.channelId || o.muted || o.isPrimaryLead) {
+        if (o.role || o.channelId || o.muted || o.isPrimaryLead || o.program !== undefined) {
           trackOverrides.push(o);
         }
       });
@@ -450,7 +595,7 @@
         tr.innerHTML = `
           <td>${a.trackIndex}</td>
           <td>${escapeHtml(a.trackName || '(unnamed)')}</td>
-          <td>${escapeHtml(a.instrumentLabel || '—')}</td>
+          <td>${buildInstrumentSelectHtml(a.channel, a.program, a.trackIndex)}</td>
           <td>${a.channel === 9 ? '10 (drums)' : a.channel + 1}</td>
           <td><select class="role-select">${ROLES.map(r =>
             `<option value="${r}" ${r === a.role ? 'selected' : ''}>${r}</option>`
@@ -461,16 +606,27 @@
           ).join('')}</select></td>
           <td><input type="checkbox" class="mute-cb" ${a.muted ? 'checked' : ''} /></td>
           <td><input type="radio" name="primaryLead" class="lead-rb" value="${a.trackIndex}" ${a.isPrimaryLead ? 'checked' : ''} /></td>
+          <td><button type="button" class="preview-btn" data-has-notes="1" title="Play 10s excerpt">▶</button></td>
         `;
+        const previewBtn = tr.querySelector('.preview-btn');
+        previewBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          playTrackPreview(a.trackIndex);
+        });
+        const instSel = tr.querySelector('.instrument-select');
+        instSel?.addEventListener('change', () => {
+          refreshAnalysisFromTable();
+        });
         trackTableBody.appendChild(tr);
       }
 
+      setPreviewButtonsDisabled(previewInProgress);
       reviewPanel.classList.add('visible');
       const mapped = analysis.assignments.length;
       reviewHint.textContent =
         `${active.length} part(s) from ${analysis.trackCount} MIDI track(s). ` +
         `${mapped} auto-mapped to engine channels (8 slots: p1–p4, w1–w2, n1–n2). ` +
-        'Assign role + engine per row; unmapped parts are skipped unless you pick a channel.';
+        'Assign role, GM instrument, and engine per row; unmapped parts are skipped unless you pick a channel.';
       if (analysis.needsReview) {
         reviewHint.textContent =
           'Review recommended — ' + reviewHint.textContent;
@@ -488,6 +644,46 @@
         .replace(/"/g, '&quot;');
     }
 
+    function captureAutoDetectedPrograms(analysis) {
+      autoDetectedPrograms = new Map();
+      for (const a of analysis.analyses ?? []) {
+        if (a.noteCount === 0) continue;
+        if (a.channel === 9) {
+          autoDetectedPrograms.set(a.trackIndex, 0);
+        } else if (a.program !== undefined) {
+          autoDetectedPrograms.set(a.trackIndex, a.program);
+        }
+      }
+    }
+
+    function buildInstrumentSelectHtml(channel, selectedProgram, trackIndex) {
+      if (!listGmInstrumentOptions) {
+        return '<span class="instrument-fallback">—</span>';
+      }
+      const options = listGmInstrumentOptions(channel);
+      const autoProgram = autoDetectedPrograms.get(trackIndex);
+      let program = selectedProgram;
+      if (program === undefined || !options.some(o => o.program === program)) {
+        program = autoProgram !== undefined
+          ? autoProgram
+          : (options[0]?.program ?? 0);
+      }
+      const opts = options.map(o => {
+        const label = o.program === autoProgram
+          ? `${o.label} (auto)`
+          : o.label;
+        return `<option value="${o.program}"${o.program === program ? ' selected' : ''}>${escapeHtml(label)}</option>`;
+      }).join('');
+      return `<select class="instrument-select" title="GM instrument">${opts}</select>`;
+    }
+
+    async function refreshAnalysisFromTable() {
+      if (!currentMidiBuffer || !player) return;
+      rebuildOverridesFromTable();
+      currentAnalysis = player.analyzeMIDI(currentMidiBuffer, trackOverrides);
+      buildTrackReviewTable(currentAnalysis);
+    }
+
     async function loadMidiFile(file) {
       try {
         setStatus('Reading MIDI...', '');
@@ -498,6 +694,7 @@
         }
         trackOverrides = [];
         const info = player.analyzeMIDI(buffer);
+        captureAutoDetectedPrograms(info);
         currentAnalysis = info;
 
         currentMidiBuffer = buffer;
@@ -672,6 +869,8 @@
     if (!player) {
       setStatus('Engine failed to load.', 'warn');
       log('GameDudeSynthV2.GameBoyPlayer missing from public/gameboy-player.iife.js');
+    } else if (!partPreview) {
+      log('PartPreviewPlayer missing from bundle; lightweight preview unavailable.');
     }
 
     if (window.location.protocol === 'file:' && player) {

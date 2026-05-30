@@ -78,6 +78,8 @@ export interface TrackAnalysis {
   trackName?: string;
   /** GM or MIDI meta instrument label when available */
   instrumentLabel?: string;
+  /** GM program number (0–127), channel 9 = drums */
+  program?: number;
   isDrums: boolean;
   isPercussive: boolean;
   noteRange: {
@@ -114,6 +116,8 @@ export interface TrackOverride {
   channelId?: ChannelId;
   muted?: boolean;
   isPrimaryLead?: boolean;
+  /** GM program override (ignored on drum channel 9) */
+  program?: number;
 }
 
 /**
@@ -201,4 +205,26 @@ export interface PlaybackInfo {
   duration: number;
   assignments: ChannelAssignment[];
   noteCount: number;
+}
+
+/**
+ * Single note in a per-track preview clip (times relative to clip start)
+ */
+export interface PreviewNote {
+  midiNote: number;
+  startTime: number;
+  duration: number;
+  velocity: number;
+}
+
+/**
+ * Excerpt of one MIDI part for lightweight or GB preview playback
+ */
+export interface TrackPreviewClip {
+  trackIndex: number;
+  duration: number;
+  isDrums: boolean;
+  program?: number;
+  notes: PreviewNote[];
+  assignment?: ChannelAssignment;
 }

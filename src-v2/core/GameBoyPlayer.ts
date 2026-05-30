@@ -12,8 +12,10 @@ import { ChannelMapper, type ChannelMapperConfig } from '../audio/midi/ChannelMa
 import { Arpeggiator } from '../audio/midi/Arpeggiator';
 import { midiNoteToDrumHit } from '../audio/midi/drumNoteMap';
 import { needsAssignmentReview } from '../audio/midi/RoleAllocator';
+import { gmProgramLabel } from '../audio/midi/gmPrograms';
 import { GameBoyArranger, type ArrangerConfig } from '../audio/arranger/GameBoyArranger';
 import type { MIDITrack, MIDINote } from '../audio/midi/TrackAnalyzer';
+import { pickPreviewWindow } from '../audio/preview/previewWindow';
 import type { 
   ChannelNote, 
   ChannelAssignment, 
@@ -23,6 +25,8 @@ import type {
   MIDIAnalysisResult,
   TrackOverride,
   TrackAnalysis,
+  TrackPreviewClip,
+  PreviewNote,
 } from '../types';
 
 export interface GameBoyPlayerConfig extends Partial<V2Config> {
@@ -76,6 +80,10 @@ export class GameBoyPlayer {
   private schedulerInterval: ReturnType<typeof setInterval> | null = null;
   private readonly SCHEDULE_AHEAD_TIME = 2.0; // Schedule 2 seconds ahead
   private readonly SCHEDULER_INTERVAL_MS = 250; // Check every 250ms
+
+  private previewAudioContext: AudioContext | null = null;
+  private previewApu: GameBoyAPU | null = null;
+  private previewGbStopTimer: ReturnType<typeof setTimeout> | null = null;
   
   constructor(config: Partial<GameBoyPlayerConfig> = {}) {
     this.config = { ...DEFAULT_PLAYER_CONFIG, ...config };
@@ -119,7 +127,8 @@ export class GameBoyPlayer {
     
     // Convert to our track format
     const tracks = this.convertMIDITracks(midi);
-    
+    this.applyProgramOverrides(tracks, overrides);
+
     const { assignments } = this.mapper.mapTracks(tracks, overrides);
     const nonEmptyTrackCount = tracks.filter(t => t.notes.length > 0).length;
     const droppedTrackCount = Math.max(0, nonEmptyTrackCount - assignments.length);
@@ -272,6 +281,7 @@ export class GameBoyPlayer {
     this.arranger.setBPM(bpm);
 
     const tracks = this.convertMIDITracks(midi);
+    this.applyProgramOverrides(tracks, overrides);
     const { assignments } = this.mapper.mapTracks(tracks, overrides);
     const totalDuration = midi.duration + 0.5;
     const totalSamples = Math.ceil(totalDuration * sampleRate);
@@ -538,6 +548,7 @@ export class GameBoyPlayer {
   analyzeMIDI(midiData: ArrayBuffer, overrides: TrackOverride[] = []): MIDIAnalysisResult {
     const midi = new Midi(midiData);
     const tracks = this.convertMIDITracks(midi);
+    this.applyProgramOverrides(tracks, overrides);
     const { assignments, analyses } = this.mapper.mapTracks(tracks, overrides);
 
     const partsWithNotes = analyses.filter(a => a.noteCount > 0);
@@ -563,6 +574,7 @@ export class GameBoyPlayer {
   ): { assignments: ChannelAssignment[]; analyses: TrackAnalysis[] } {
     const midi = new Midi(midiData);
     const tracks = this.convertMIDITracks(midi);
+    this.applyProgramOverrides(tracks, overrides);
     return this.mapper.mapTracks(tracks, overrides);
   }
   
@@ -571,5 +583,150 @@ export class GameBoyPlayer {
    */
   getTrackAnalysis(midiData: ArrayBuffer): TrackAnalysis[] {
     return this.analyzeMIDI(midiData).analyses;
+  }
+
+  /**
+   * Build a short excerpt of one logical part for preview playback.
+   */
+  buildTrackPreviewClip(
+    midiData: ArrayBuffer,
+    trackIndex: number,
+    overrides: TrackOverride[] = [],
+    options: { maxDurationSec?: number } = {}
+  ): TrackPreviewClip | null {
+    const maxDurationSec = options.maxDurationSec ?? 10;
+    const midi = new Midi(midiData);
+    const bpm = midi.header.tempos[0]?.bpm || this.config.defaultBPM;
+    this.arpeggiator.setBPM(bpm);
+
+    const tracks = this.convertMIDITracks(midi);
+    this.applyProgramOverrides(tracks, overrides);
+    const track = tracks[trackIndex];
+    if (!track || track.notes.length === 0) return null;
+
+    const { assignments, analyses } = this.mapper.mapTracks(tracks, overrides);
+    const analysis = analyses.find(a => a.trackIndex === trackIndex);
+    const assignment = assignments.find(a => a.trackIndex === trackIndex);
+
+    const { notes, duration } = pickPreviewWindow(track.notes, maxDurationSec);
+
+    let previewNotes: PreviewNote[] = notes;
+    if (assignment?.shouldArpeggiate && previewNotes.length > 0) {
+      const arpNotes = this.arpeggiator.arpeggiate(
+        previewNotes.map(n => ({
+          midiNote: n.midiNote,
+          time: n.startTime,
+          duration: n.duration,
+          velocity: n.velocity,
+        }))
+      );
+      previewNotes = arpNotes.map(n => ({
+        midiNote: n.midiNote,
+        startTime: n.time,
+        duration: n.duration,
+        velocity: n.velocity,
+      }));
+    }
+
+    return {
+      trackIndex,
+      duration,
+      isDrums: analysis?.isDrums ?? track.channel === 9,
+      program: track.program,
+      notes: previewNotes,
+      assignment,
+    };
+  }
+
+  /**
+   * Preview one part through the Game Boy APU (export timbre).
+   */
+  async previewTrackGB(clip: TrackPreviewClip): Promise<void> {
+    if (!clip.assignment) {
+      throw new Error('Assign an engine channel to preview export sound');
+    }
+
+    const ctx = await this.ensurePreviewContext();
+    const apu = this.previewApu!;
+    await apu.resume();
+    apu.stopAll();
+
+    if (this.previewGbStopTimer) {
+      clearTimeout(this.previewGbStopTimer);
+      this.previewGbStopTimer = null;
+    }
+
+    this.applyChannelSettings(clip.assignment, apu);
+    const gbNotes = this.previewNotesToChannelNotes(clip.notes, clip.assignment);
+    const startAt = ctx.currentTime + 0.05;
+
+    for (const note of gbNotes) {
+      apu.scheduleNote({
+        ...note,
+        startTime: startAt + note.startTime,
+      });
+    }
+
+    return new Promise<void>(resolve => {
+      this.previewGbStopTimer = setTimeout(() => {
+        apu.stopAll();
+        this.previewGbStopTimer = null;
+        resolve();
+      }, clip.duration * 1000 + 200);
+    });
+  }
+
+  /**
+   * Stop GB preview APU if running.
+   */
+  stopPreviewGB(): void {
+    if (this.previewGbStopTimer) {
+      clearTimeout(this.previewGbStopTimer);
+      this.previewGbStopTimer = null;
+    }
+    this.previewApu?.stopAll();
+  }
+
+  private async ensurePreviewContext(): Promise<AudioContext> {
+    if (!this.previewAudioContext) {
+      this.previewAudioContext = new AudioContext();
+      this.previewApu = new GameBoyAPU(this.previewAudioContext, this.config);
+    }
+    if (this.previewAudioContext.state === 'suspended') {
+      await this.previewAudioContext.resume();
+    }
+    return this.previewAudioContext;
+  }
+
+  /**
+   * Apply user GM program picks before analysis / preview / render.
+   */
+  private applyProgramOverrides(
+    tracks: MIDITrack[],
+    overrides: TrackOverride[]
+  ): void {
+    for (const o of overrides) {
+      if (o.program === undefined) continue;
+      const track = tracks[o.trackIndex];
+      if (!track || track.channel === 9) continue;
+      const program = Math.max(0, Math.min(127, Math.floor(o.program)));
+      track.program = program;
+      track.instrumentName = gmProgramLabel(program, track.channel);
+    }
+  }
+
+  private previewNotesToChannelNotes(
+    notes: PreviewNote[],
+    assignment: ChannelAssignment
+  ): ChannelNote[] {
+    const isNoise = assignment.channelId.startsWith('n');
+    return notes.map(note => ({
+      channel: assignment.channelId,
+      midiNote: note.midiNote,
+      startTime: note.startTime,
+      duration: note.duration,
+      velocity: note.velocity,
+      ...(isNoise ? { drumHit: midiNoteToDrumHit(note.midiNote) } : {}),
+    }));
   }
 }

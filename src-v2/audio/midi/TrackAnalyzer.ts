@@ -85,6 +85,7 @@ export class TrackAnalyzer {
       channel: track.channel,
       trackName: track.name,
       instrumentLabel,
+      program: track.channel === 9 ? undefined : track.program,
       isDrums,
       isPercussive,
       noteRange,
