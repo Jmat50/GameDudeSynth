@@ -1,5 +1,8 @@
 # GameDudeSynth
 
+> **Live demo** — try it in your browser, no install required:
+> [MIDI export](https://jmat50.github.io/GameDudeSynth/engine.html) · [WAV player](https://jmat50.github.io/GameDudeSynth/gamedude-player.html)
+
 Turn MIDI files into **Game Boy–style audio** and export WAV offline.
 
 GameDudeSynth is a standalone chiptune synthesis tool built around an 8-channel “Super Game Boy” engine (`src-v2/`): four pulse channels, two wave channels, and two noise channels. It analyzes MIDI tracks, assigns roles (lead, bass, drums, harmony), and renders through authentic-style oscillators and LFSR noise—no samples, no cloud backend.

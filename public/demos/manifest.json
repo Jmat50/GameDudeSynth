@@ -1,9 +1,9 @@
 {
   "tracks": [
     {
-      "id": "CarlyRaeJepsen_-_CallMeMaybe__Pittman_20130130074825",
-      "title": "CarlyRaeJepsen CallMeMaybe Pittman 20130130074825",
-      "url": "./public/demos/CarlyRaeJepsen_-_CallMeMaybe__Pittman_20130130074825.wav"
+      "id": "CarlyRaeJepsen - Call Me Maybe",
+      "title": "CarlyRaeJepsen Call Me Maybe",
+      "url": "./public/demos/CarlyRaeJepsen - Call Me Maybe.wav"
     },
     {
       "id": "Diary Of Jane - Breaking Benjamin",
@@ -11,24 +11,29 @@
       "url": "./public/demos/Diary Of Jane - Breaking Benjamin.wav"
     },
     {
+      "id": "Led Zeppelin - Rock and Roll",
+      "title": "Led Zeppelin Rock And Roll",
+      "url": "./public/demos/Led Zeppelin - Rock and Roll.wav"
+    },
+    {
       "id": "Michael Jackson - Beat It",
       "title": "Michael Jackson Beat It",
       "url": "./public/demos/Michael Jackson - Beat It.wav"
     },
     {
-      "id": "Peaches",
-      "title": "Peaches",
-      "url": "./public/demos/Peaches.wav"
+      "id": "Presidents of the United States - Peaches",
+      "title": "Presidents Of The United States Peaches",
+      "url": "./public/demos/Presidents of the United States - Peaches.wav"
     },
     {
-      "id": "Rock_And_Roll",
-      "title": "Rock And Roll",
-      "url": "./public/demos/Rock_And_Roll.wav"
+      "id": "We Didn't Start The Fire",
+      "title": "We Didn'T Start The Fire",
+      "url": "./public/demos/We Didn't Start The Fire.wav"
     },
     {
-      "id": "We Didn't Start The Fire 1 (Karaoke)",
-      "title": "We Didn'T Start The Fire 1 (Karaoke)",
-      "url": "./public/demos/We Didn't Start The Fire 1 (Karaoke).wav"
+      "id": "What Is Love",
+      "title": "What Is Love",
+      "url": "./public/demos/What Is Love.wav"
     }
   ]
 }
