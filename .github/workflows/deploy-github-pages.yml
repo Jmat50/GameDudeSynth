@@ -33,12 +33,27 @@ jobs:
       - name: Assemble GitHub Pages site
         run: npm run build:pages
 
-      - name: Deploy to jmat50.github.io
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          token: ${{ secrets.PAGES_DEPLOY_TOKEN }}
-          repository-name: Jmat50/jmat50.github.io
-          branch: main
-          folder: dist/github-pages
-          clean: true
-          commit-message: Deploy GameDudeSynth @ ${{ github.sha }}
+      - name: Deploy to jmat50.github.io/GameDudeSynth
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/Jmat50/jmat50.github.io.git" pages-repo
+          cd pages-repo
+
+          rm -rf GameDudeSynth
+          rm -f index.html main-v2-export.html engine.html gamedude-player.html
+          rm -rf public src-player vendor demos
+
+          cp -r "$GITHUB_WORKSPACE/dist/github-pages/GameDudeSynth" ./GameDudeSynth
+          cp "$GITHUB_WORKSPACE/dist/github-pages/.nojekyll" ./.nojekyll
+
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to deploy"
+            exit 0
+          fi
+          git commit -m "Deploy GameDudeSynth @ ${{ github.sha }}"
+          git push

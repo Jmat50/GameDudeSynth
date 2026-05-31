@@ -22,7 +22,7 @@ npm install
 - Run `python server_gui.py`
 
 4. Click **Start Server** → **Open Export** (or **Open Player** for the WAV menu).
-5. Export: **`http://127.0.0.1:3000/main-v2-export.html`** — drop a `.mid` file, review track assignments, **Render WAV**, **Export WAV**.
+5. Export: **`http://127.0.0.1:3000/engine.html`** — drop a `.mid` file, review track assignments, **Render WAV**, **Export WAV**.
 6. Player: **`http://127.0.0.1:3000/gamedude-player.html`** — drop `.wav` files in `public/demos/`, power on the console, use D-pad + A/START.
 
 Hard-refresh the browser (`Ctrl+Shift+R`) after rebuilding bundles.
@@ -39,7 +39,7 @@ Hard-refresh the browser (`Ctrl+Shift+R`) after rebuilding bundles.
 
 | Path | Purpose |
 |------|---------|
-| `main-v2-export.html` | Export UI (drag/drop MIDI, track review, WAV export) |
+| `engine.html` | Export UI (drag/drop MIDI, track review, WAV export) |
 | `gamedude-player.html` | Game Boy shell WAV player (`public/demos/`) |
 | `public/gameboy-player.iife.js` | Browser bundle (`GameDudeSynthV2.GameBoyPlayer`) |
 | `public/gameboy-ui.iife.js` | WAV player UI bundle (Lit + Howler) |
@@ -69,11 +69,16 @@ npm run test:track-analysis                  # Track role / drum routing regress
 build_server_gui.bat
 ```
 
-Produces `dist/GameDudeSynthServer.exe` and copies it to the project root. Run the exe from this folder (same directory as `main-v2-export.html` and `public/`).
+Produces `dist/GameDudeSynthServer.exe` and copies it to the project root. Run the exe from this folder (same directory as `engine.html` and `public/`).
 
 ## Live demo (GitHub Pages)
 
-The export UI and WAV player are published at **https://jmat50.github.io/** from the [`jmat50.github.io`](https://github.com/Jmat50/jmat50.github.io) repo. Pushes to `master` on this repo trigger an automatic deploy via `.github/workflows/deploy-github-pages.yml`.
+The export UI and WAV player are published under **`/GameDudeSynth/`** on [jmat50.github.io](https://jmat50.github.io):
+
+- **MIDI export:** https://jmat50.github.io/GameDudeSynth/engine.html
+- **WAV player:** https://jmat50.github.io/GameDudeSynth/gamedude-player.html
+
+Pushes to `master` on this repo trigger an automatic deploy via `.github/workflows/deploy-github-pages.yml`.
 
 ### One-time setup
 
@@ -81,7 +86,7 @@ The export UI and WAV player are published at **https://jmat50.github.io/** from
 2. **Deploy token** — create a [fine-grained personal access token](https://github.com/settings/tokens?type=beta) (or classic PAT) with **Contents: Read and write** on `Jmat50/jmat50.github.io`.
 3. **Repository secret** — in [GameDudeSynth → Settings → Secrets](https://github.com/Jmat50/GameDudeSynth/settings/secrets/actions), add `PAGES_DEPLOY_TOKEN` with that token value.
 
-After the secret is set, push to `master` (or run the workflow manually under Actions → “Deploy live demo to GitHub Pages”). The workflow builds bundles, refreshes the demo manifest, assembles `dist/github-pages/`, and pushes to `jmat50.github.io`.
+After the secret is set, push to `master` (or run the workflow manually under Actions → “Deploy live demo to GitHub Pages”). The workflow builds bundles, refreshes the demo manifest, assembles `dist/github-pages/GameDudeSynth/`, and pushes to `jmat50.github.io/GameDudeSynth/`.
 
 Local dry run:
 

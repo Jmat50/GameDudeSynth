@@ -5,10 +5,12 @@ This repository is **GameDudeSynth**, a local Game Boy MIDI synthesis and WAV ex
 ## Primary user workflow
 
 1. User runs the local server (`server_gui.py`, `start_server_gui.bat`, or `GameDudeSynthServer.exe`).
-2. User opens `main-v2-export.html` over HTTP (not `file://`).
+2. User opens `engine.html` over HTTP (not `file://`).
 3. User loads a local `.mid` file, optionally adjusts the **track assignment** table, renders offline, exports WAV.
 
 Optional: open `gamedude-player.html` to browse/play WAV files from `public/demos/` using the Game Boy menu UI.
+
+Live demo (GitHub Pages): [engine.html](https://jmat50.github.io/GameDudeSynth/engine.html) · [gamedude-player.html](https://jmat50.github.io/GameDudeSynth/gamedude-player.html)
 
 ## Core code (do not confuse with removed legacy)
 
@@ -17,7 +19,7 @@ Optional: open `gamedude-player.html` to browse/play WAV files from `public/demo
 | Engine entry | `src-v2/core/GameBoyPlayer.ts` |
 | MIDI analysis | `src-v2/audio/midi/TrackAnalyzer.ts`, `RoleAllocator.ts`, `ChannelMapper.ts` |
 | APU | `src-v2/audio/apu/` |
-| Export UI | `main-v2-export.html` |
+| Export UI | `engine.html` |
 | WAV player UI | `gamedude-player.html`, `src-player/`, `vendor/gameboycss/` |
 | Browser bundle | `public/gameboy-player.iife.js` (build with `npm run build:bundle`) |
 | Player bundle | `public/gameboy-ui.iife.js` (build with `npm run build:player-ui`) |
@@ -53,7 +55,7 @@ python server_gui.py          # or start_server_gui.bat
 
 ## Guidelines for changes
 
-- **Bias toward the export path:** `main-v2-export.html` + IIFE bundle + `GameBoyPlayer.renderOffline()`.
+- **Bias toward the export path:** `engine.html` + IIFE bundle + `GameBoyPlayer.renderOffline()`.
 - **Rebuild the bundle** after engine changes: `npm run build:bundle`.
 - **Strict noise routing:** Only true drum tracks → `n1`/`n2`; use `playKick`/`playSnare`/`playHihat` when possible.
 - **Track review UI:** Show all MIDI parts; user overrides via `TrackOverride[]` passed to `renderOffline()`.
@@ -63,7 +65,7 @@ python server_gui.py          # or start_server_gui.bat
 
 ## Windows GUI server
 
-- `server_gui.py` — Tkinter start/stop, serves repo root, `/` → `main-v2-export.html`, `/demos/manifest.json` scans `public/demos/`.
+- `server_gui.py` — Tkinter start/stop, serves repo root, `/` → `engine.html`, `/demos/manifest.json` scans `public/demos/`.
 - `_resolve_serve_root()` walks up from `dist/` exe to find the project root.
 - `build_server_gui.bat` — PyInstaller → `GameDudeSynthServer.exe` in project root.
 

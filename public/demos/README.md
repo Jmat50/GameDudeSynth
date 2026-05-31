@@ -6,3 +6,5 @@ Place `.wav` files here. They appear in the Game Boy WAV player menu when served
 - Static fallback: run `npm run demos:manifest` to refresh `manifest.json`
 
 Open: `http://127.0.0.1:3000/gamedude-player.html`
+
+Live demo: https://jmat50.github.io/GameDudeSynth/gamedude-player.html

@@ -5,7 +5,7 @@ Local server GUI for GameDudeSynth export page (Windows-friendly).
 Features:
 - Start/stop local HTTP server from a small GUI
 - Serves this repository directory
-- "/" maps to main-v2-export.html
+- "/" maps to engine.html
 - Open page in default browser
 """
 
@@ -27,12 +27,12 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HOST = "127.0.0.1"
 DEFAULT_PORT = 3000
-DEFAULT_PAGE = "main-v2-export.html"
+DEFAULT_PAGE = "engine.html"
 
 
 def _resolve_serve_root() -> Path:
     """
-    Directory to serve over HTTP (must contain main-v2-export.html).
+    Directory to serve over HTTP (must contain engine.html).
 
     When the .exe lives in dist/, walk up to the real project root.
     """
@@ -88,7 +88,7 @@ class RootPageHandler(SimpleHTTPRequestHandler):
                     {
                         "id": stem,
                         "title": _humanize_wav_title(stem),
-                        "url": f"/public/demos/{wav.name}",
+                        "url": f"./public/demos/{wav.name}",
                     }
                 )
         body = json.dumps({"tracks": tracks}, indent=2).encode("utf-8")

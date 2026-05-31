@@ -25,7 +25,7 @@ const tracks = files.map((name) => {
   return {
     id: stem,
     title: humanize(stem) || stem,
-    url: `/public/demos/${name}`,
+    url: `./public/demos/${name}`,
   };
 });
 

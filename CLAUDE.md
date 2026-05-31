@@ -2,7 +2,7 @@
 
 ## What this project is
 
-**GameDudeSynth** converts local MIDI files into Game Boy–style audio using an 8-channel Web Audio engine (`src-v2/`). The main deliverable is offline WAV export via `main-v2-export.html` and optional CLI (`npm run process:midi`).
+**GameDudeSynth** converts local MIDI files into Game Boy–style audio using an 8-channel Web Audio engine (`src-v2/`). The main deliverable is offline WAV export via `engine.html` and optional CLI (`npm run process:midi`).
 
 Local-only: no in-repo MIDI search, fetch API, soundfont preview app, or cloud deploy stack.
 
@@ -33,6 +33,6 @@ Local-only: no in-repo MIDI search, fetch API, soundfont preview app, or cloud d
 
 - `src-v2/core/GameBoyPlayer.ts` — orchestration
 - `src-v2/audio/midi/` — analysis, allocation, mapping
-- `main-v2-export.html` — UI
+- `engine.html` — UI
 - `public/gameboy-player.iife.js` — browser runtime
 - `AGENTS.md` — local workflow details

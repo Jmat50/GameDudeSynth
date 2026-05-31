@@ -2790,17 +2790,31 @@
 
   // src-player/audio/WavCatalog.js
   var import_howler = __toESM(require_howler(), 1);
-  var MANIFEST_URL = "/demos/manifest.json";
-  var FALLBACK_MANIFEST_URL = "/public/demos/manifest.json";
+  var MANIFEST_URL = "./demos/manifest.json";
+  var FALLBACK_MANIFEST_URL = "./public/demos/manifest.json";
+  function humanizeFilename(stem) {
+    return stem.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim().replace(/\b\w/g, (c4) => c4.toUpperCase());
+  }
+  function isWavFile(file) {
+    if (!file) return false;
+    const name = file.name?.toLowerCase() ?? "";
+    if (name.endsWith(".wav")) return true;
+    const type = file.type?.toLowerCase() ?? "";
+    return type === "audio/wav" || type === "audio/x-wav" || type === "audio/wave";
+  }
   var WavCatalog = class {
     constructor() {
-      this.tracks = [];
+      this.manifestTracks = [];
+      this.localTracks = [];
       this.currentHowl = null;
       this.currentIndex = -1;
       this.onEnd = null;
       this.onProgress = null;
       this._progressTimer = null;
       this._startedAt = 0;
+    }
+    get tracks() {
+      return [...this.localTracks, ...this.manifestTracks];
     }
     async loadManifest() {
       let data = null;
@@ -2814,8 +2828,26 @@
         } catch {
         }
       }
-      this.tracks = data?.tracks ?? [];
+      this.manifestTracks = data?.tracks ?? [];
       return this.tracks;
+    }
+    addLocalFile(file) {
+      if (!isWavFile(file)) return -1;
+      const objectUrl = URL.createObjectURL(file);
+      const stem = file.name.replace(/\.wav$/i, "");
+      this.localTracks.unshift({
+        id: `local-${Date.now()}-${stem}`,
+        title: humanizeFilename(stem),
+        url: objectUrl,
+        local: true
+      });
+      return 0;
+    }
+    clearLocalTracks() {
+      for (const track of this.localTracks) {
+        URL.revokeObjectURL(track.url);
+      }
+      this.localTracks = [];
     }
     play(index) {
       this.stop(false);
@@ -2865,7 +2897,13 @@
       return !!this.currentHowl?.playing();
     }
     getCurrentTrack() {
-      return this.currentIndex >= 0 ? this.tracks[this.currentIndex] : null;
+      if (this.currentIndex < 0) return null;
+      return this.tracks[this.currentIndex] ?? null;
+    }
+    playLocalFile(file) {
+      const index = this.addLocalFile(file);
+      if (index < 0) return false;
+      return this.play(index);
     }
     _clearProgress() {
       if (this._progressTimer) {
@@ -2900,6 +2938,7 @@
       this.catalog = new WavCatalog();
       this._bootTimer = null;
       this._blinkTimer = null;
+      this._pendingDrop = null;
       this.showBlink = true;
       this.catalog.onEnd = () => this._returnToMenu();
       this.catalog.onProgress = (elapsed, duration) => {
@@ -2932,6 +2971,11 @@
         if (tracks.length === 0) {
           this.statusText = "NO TRACKS";
         }
+        if (this._pendingDrop) {
+          const file = this._pendingDrop;
+          this._pendingDrop = null;
+          this.handleDroppedFile(file);
+        }
       }, 1200);
       this._blinkTimer = setInterval(() => {
         this.showBlink = !this.showBlink;
@@ -2940,11 +2984,27 @@
     }
     powerOff() {
       this._clearTimers();
+      this._pendingDrop = null;
       this.catalog.stop(false);
+      this.catalog.clearLocalTracks();
       this.scene = "off";
       this.tracks = [];
       this.cursor = 0;
       this.statusText = "";
+    }
+    handleDroppedFile(file) {
+      if (this.loading || this.scene === "boot") {
+        this._pendingDrop = file;
+        return true;
+      }
+      const ok = this.catalog.playLocalFile(file);
+      if (!ok) return false;
+      this.tracks = this.catalog.tracks;
+      this.cursor = 0;
+      this.scene = "playing";
+      this.elapsed = 0;
+      this.duration = 0;
+      return true;
     }
     handleInput(detail) {
       if (!this.start || this.loading) return;
@@ -3109,9 +3169,6 @@
       text-align: center;
       opacity: 0.9;
     }
-    .viewport.blank {
-      /* powered off — empty LCD, no content */
-    }
   `;
     render() {
       if (this.scene === "off") {
@@ -3130,8 +3187,8 @@
           <div class="title">GAMEDUDESYNTH</div>
           <div class="rule"></div>
           <div class="empty">
-            DROP .WAV FILES<br />
-            IN public/demos/
+            DRAG .WAV HERE<br />
+            TO PLAY
           </div>
         </div>
       `;
@@ -3169,7 +3226,7 @@
             </div>
           `)}
         </div>
-        <div class="hint">A/START PLAY · B STOP</div>
+        <div class="hint">A/START PLAY · B STOP · DROP WAV</div>
       </div>
     `;
     }
@@ -3457,11 +3514,64 @@
         const detail = event.detail ?? { action: event.type.replace("GAMEBOY_", "").replace("_PRESSED", "").toLowerCase() };
         this._forwardInput(detail);
       };
+      this._onDragEnter = (event) => {
+        if (!this._hasWavFile(event.dataTransfer)) return;
+        event.preventDefault();
+        this.setAttribute("drag-over", "");
+      };
+      this._onDragOver = (event) => {
+        if (!this._hasWavFile(event.dataTransfer)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        this.setAttribute("drag-over", "");
+      };
+      this._onDragLeave = (event) => {
+        if (event.currentTarget.contains(event.relatedTarget)) return;
+        this.removeAttribute("drag-over");
+      };
+      this._onDrop = (event) => {
+        event.preventDefault();
+        this.removeAttribute("drag-over");
+        const file = this._extractWavFile(event.dataTransfer);
+        if (!file) return;
+        this._playDroppedFile(file);
+      };
       this.addEventListener("GAMEBOY_DPAD", this._onControl);
       this.addEventListener("GAMEBOY_A_PRESSED", this._onControl);
       this.addEventListener("GAMEBOY_B_PRESSED", this._onControl);
       this.addEventListener("GAMEBOY_START_PRESSED", this._onControl);
       this.addEventListener("GAMEBOY_SELECT_PRESSED", this._onControl);
+    }
+    connectedCallback() {
+      super.connectedCallback();
+      this.addEventListener("dragenter", this._onDragEnter);
+      this.addEventListener("dragover", this._onDragOver);
+      this.addEventListener("dragleave", this._onDragLeave);
+      this.addEventListener("drop", this._onDrop);
+    }
+    disconnectedCallback() {
+      super.disconnectedCallback();
+      this.removeEventListener("dragenter", this._onDragEnter);
+      this.removeEventListener("dragover", this._onDragOver);
+      this.removeEventListener("dragleave", this._onDragLeave);
+      this.removeEventListener("drop", this._onDrop);
+    }
+    _hasWavFile(dataTransfer) {
+      if (!dataTransfer) return false;
+      if (dataTransfer.files?.length) {
+        return [...dataTransfer.files].some(isWavFile);
+      }
+      return [...dataTransfer.items ?? []].some((item) => item.kind === "file");
+    }
+    _extractWavFile(dataTransfer) {
+      return [...dataTransfer?.files ?? []].find(isWavFile) ?? null;
+    }
+    _playDroppedFile(file) {
+      if (!this.isOn) {
+        this.isOn = true;
+        this._getScreen()?.powerOn();
+      }
+      this._getScreen()?.handleDroppedFile(file);
     }
     setVolumeLevel(level) {
       import_howler2.Howler.volume(level);
@@ -3509,6 +3619,14 @@
       flex-direction: column;
       justify-content: space-between;
       position: relative;
+      transition: box-shadow 0.15s ease;
+    }
+    :host([drag-over]) .gameboy {
+      box-shadow:
+        0 0 18px rgba(138, 172, 15, 0.85),
+        0 0 25px rgba(0, 0, 0, 0.25) inset,
+        -2px -2px 10px rgba(0, 0, 0, 0.8) inset,
+        0 0 15px rgba(0, 0, 0, 0.75) inset;
     }
     .power {
       width: 30px;
