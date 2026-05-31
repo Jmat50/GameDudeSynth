@@ -7,6 +7,7 @@
     "typecheck": "tsc --noEmit",
     "build:bundle": "esbuild src-v2/index.ts --bundle --platform=browser --format=iife --global-name=GameDudeSynthV2 --outfile=public/gameboy-player.iife.js",
     "build:player-ui": "esbuild src-player/index.js --bundle --platform=browser --format=iife --outfile=public/gameboy-ui.iife.js",
+    "build:pages": "node scripts/build-github-pages.js",
     "build:all": "npm run build:bundle && npm run build:player-ui",
     "demos:manifest": "node scripts/generate-demos-manifest.js",
     "process:midi": "npx vite-node scripts/process-local-midi-v2.ts",

@@ -1,0 +1,44 @@
+name: Deploy live demo to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GameDudeSynth
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build browser bundles
+        run: npm run build:all
+
+      - name: Refresh demo manifest
+        run: npm run demos:manifest
+
+      - name: Assemble GitHub Pages site
+        run: npm run build:pages
+
+      - name: Deploy to jmat50.github.io
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          token: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+          repository-name: Jmat50/jmat50.github.io
+          branch: main
+          folder: dist/github-pages
+          clean: true
+          commit-message: Deploy GameDudeSynth @ ${{ github.sha }}
