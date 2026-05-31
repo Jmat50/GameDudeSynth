@@ -39,5 +39,6 @@ Do not edit files here directly — push changes to the source repo instead.
 - **WAV player:** https://jmat50.github.io/gamedude-player.html
 `;
 writeFileSync(join(out, 'README.md'), readme, 'utf8');
+writeFileSync(join(out, '.nojekyll'), '', 'utf8');
 
 console.log(`GitHub Pages site written to ${out}`);
