@@ -270,6 +270,10 @@ export class GameboyConsole extends LitElement {
       font-size: 14px;
       color: #302058;
     }
+    .brand .company-mark {
+      font-family: Lato, sans-serif;
+      font-weight: bold;
+    }
     .brand .type {
       font-family: Lato, sans-serif;
       font-weight: bold;
@@ -370,7 +374,7 @@ export class GameboyConsole extends LitElement {
           </div>
         </div>
         <div class="brand">
-          <div class="company">NintenDOH!</div>
+          <div class="company">NintenDOH<span class="company-mark">!</span></div>
           <div class="type">GameDude<sup>™</sup></div>
         </div>
         <div class="controls">
