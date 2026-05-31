@@ -4267,7 +4267,11 @@
     };
     attachCatalog();
   }
-  document.addEventListener("DOMContentLoaded", initProjectMVisualizer);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initProjectMVisualizer);
+  } else {
+    initProjectMVisualizer();
+  }
   document.addEventListener("keydown", (e6) => {
     const mapped = KEY_MAP[e6.key];
     if (!mapped) return;

@@ -2,7 +2,7 @@
  * Assemble GameDudeSynth under /GameDudeSynth/ for jmat50.github.io.
  * Run after build:all, demos:manifest, and verify-projectm-vendor.
  */
-import { cpSync, copyFileSync, existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -20,6 +20,15 @@ function assertProjectMBundle() {
       throw new Error(`Missing ${path} — run scripts/build-projectm-wasm.ps1 then commit public/vendor/projectm/`);
     }
   }
+}
+
+/** Cache-bust static assets on the live demo (Pages CDN + browser caches). */
+function writePlayerHtml(destPath) {
+  const cacheVersion =
+    process.env.GITHUB_SHA?.slice(0, 7) ?? new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 12);
+  let html = readFileSync(join(root, 'gamedude-player.html'), 'utf8');
+  html = html.replace(/((?:href|src)="\.\/[^"?]+)(\?[^"]*)?(")/g, `$1?v=${cacheVersion}$3`);
+  writeFileSync(destPath, html, 'utf8');
 }
 
 function copyProjectMIntoPagesPublic() {
@@ -41,7 +50,7 @@ mkdirSync(siteRoot, { recursive: true });
 assertProjectMBundle();
 
 copyFileSync(join(root, 'engine.html'), join(siteRoot, 'engine.html'));
-copyFileSync(join(root, 'gamedude-player.html'), join(siteRoot, 'gamedude-player.html'));
+writePlayerHtml(join(siteRoot, 'gamedude-player.html'));
 
 cpSync(join(root, 'public'), join(siteRoot, 'public'), { recursive: true });
 copyProjectMIntoPagesPublic();
