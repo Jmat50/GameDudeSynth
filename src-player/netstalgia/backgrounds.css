@@ -1,0 +1,172 @@
+/*
+ * Netstalgia background patterns — adapted from heza-ru/Netstalgia (MIT)
+ * https://github.com/heza-ru/Netstalgia
+ * Subset of app/globals.css — pattern classes only.
+ */
+
+:root {
+  --win95-gray: #cdc7bb;
+  --win95-light: #ecece0;
+  --win95-dark: #a0947e;
+  --win95-darker: #896b4f;
+  --win95-white: #ffffff;
+}
+
+#retro-bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: #000;
+  background-attachment: fixed;
+  transform-origin: center center;
+  will-change: transform, filter;
+}
+
+#retro-bg-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+#retro-bg-canvas[hidden] {
+  display: none;
+}
+
+.bg-gamedude-default {
+  background-color: #000;
+  background-image:
+    repeating-linear-gradient(
+      132deg,
+      #000 0% 10%,
+      transparent 10% 11%,
+      #000 11% 21%,
+      transparent 21% 22%
+    ),
+    linear-gradient(50deg, #7e2e52 30%, #513a8d 60%);
+}
+
+.bg-pattern-dots {
+  background-color: var(--win95-light);
+  background-image: radial-gradient(circle, var(--win95-dark) 1px, transparent 1px);
+  background-size: 10px 10px;
+}
+
+.bg-pattern-grid {
+  background-color: var(--win95-white);
+  background-image:
+    linear-gradient(var(--win95-gray) 1px, transparent 1px),
+    linear-gradient(90deg, var(--win95-gray) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.dithered-gradient-blue {
+  background:
+    radial-gradient(circle at 25% 25%, #0000ff 1px, transparent 1px),
+    radial-gradient(circle at 75% 75%, #000080 1px, transparent 1px),
+    linear-gradient(45deg, #4040ff 25%, transparent 25%),
+    linear-gradient(-45deg, #8080ff 25%, transparent 25%),
+    #c0c0ff;
+  background-size: 4px 4px, 4px 4px, 8px 8px, 8px 8px, 100% 100%;
+  background-position: 0 0, 2px 2px, 0 0, 0 0, 0 0;
+}
+
+.dithered-gradient-green {
+  background:
+    radial-gradient(circle at 25% 25%, #008000 1px, transparent 1px),
+    radial-gradient(circle at 75% 75%, #004000 1px, transparent 1px),
+    linear-gradient(45deg, #40ff40 25%, transparent 25%),
+    linear-gradient(-45deg, #80ff80 25%, transparent 25%),
+    #c0ffc0;
+  background-size: 4px 4px, 4px 4px, 8px 8px, 8px 8px, 100% 100%;
+  background-position: 0 0, 2px 2px, 0 0, 0 0, 0 0;
+}
+
+.dithered-gradient-red {
+  background:
+    radial-gradient(circle at 25% 25%, #ff0000 1px, transparent 1px),
+    radial-gradient(circle at 75% 75%, #800000 1px, transparent 1px),
+    linear-gradient(45deg, #ff4040 25%, transparent 25%),
+    linear-gradient(-45deg, #ff8080 25%, transparent 25%),
+    #ffc0c0;
+  background-size: 4px 4px, 4px 4px, 8px 8px, 8px 8px, 100% 100%;
+  background-position: 0 0, 2px 2px, 0 0, 0 0, 0 0;
+}
+
+.dithered-gradient-gray {
+  background:
+    radial-gradient(circle at 25% 25%, #808080 1px, transparent 1px),
+    radial-gradient(circle at 75% 75%, #404040 1px, transparent 1px),
+    linear-gradient(45deg, #c0c0c0 25%, transparent 25%),
+    linear-gradient(-45deg, #e0e0e0 25%, transparent 25%),
+    #f0f0f0;
+  background-size: 4px 4px, 4px 4px, 8px 8px, 8px 8px, 100% 100%;
+  background-position: 0 0, 2px 2px, 0 0, 0 0, 0 0;
+}
+
+.pixel-pattern-checkerboard {
+  background-color: #e0e0e0;
+  background-image:
+    linear-gradient(45deg, #c0c0c0 25%, transparent 25%),
+    linear-gradient(-45deg, #c0c0c0 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #c0c0c0 75%),
+    linear-gradient(-45deg, transparent 75%, #c0c0c0 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+}
+
+.pixel-pattern-dots {
+  background-color: #f0f0f0;
+  background-image: radial-gradient(circle at center, #808080 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+.pixel-pattern-grid {
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(#c0c0c0 1px, transparent 1px),
+    linear-gradient(90deg, #c0c0c0 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+.pixel-pattern-diagonal {
+  background-color: #d0d0d0;
+  background-image: repeating-linear-gradient(45deg, #e0e0e0, #e0e0e0 2px, #c0c0c0 2px, #c0c0c0 4px);
+}
+
+.pixel-pattern-brick {
+  background-color: #e4b1ab;
+  background-image:
+    linear-gradient(335deg, #b38184 23px, transparent 23px),
+    linear-gradient(155deg, #b38184 23px, transparent 23px),
+    linear-gradient(335deg, #b38184 23px, transparent 23px),
+    linear-gradient(155deg, #b38184 23px, transparent 23px);
+  background-size: 16px 16px;
+  background-position: 0px 0px, 0px 0px, 8px 8px, 8px 8px;
+}
+
+.bg-canvas-underlay {
+  background-color: #000014;
+}
+
+.bg-canvas-underlay-matrix {
+  background-color: #000000;
+}
+
+#retro-bg-layer[data-audio-reactive='true'] {
+  --audio-rms: 0;
+  --audio-bass: 0;
+  --audio-mid: 0;
+  --audio-treble: 0;
+  filter: brightness(calc(0.9 + var(--audio-rms) * 0.35))
+    saturate(calc(1 + var(--audio-mid) * 0.25));
+  transform: scale(calc(1 + var(--audio-bass) * 0.015));
+  transition: filter 80ms linear, transform 80ms linear;
+}
+
+#retro-bg-layer.pixel-pattern-diagonal[data-audio-reactive='true'],
+#retro-bg-layer.pixel-pattern-brick[data-audio-reactive='true'] {
+  background-position: calc(var(--audio-mid) * 12px) calc(var(--audio-bass) * 8px);
+}

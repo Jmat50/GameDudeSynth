@@ -40,7 +40,7 @@
            * @return {Howler}
            */
           init: function() {
-            var self = this || Howler3;
+            var self = this || Howler4;
             self._counter = 1e3;
             self._html5AudioPool = [];
             self.html5PoolSize = 10;
@@ -65,7 +65,7 @@
            * @return {Howler/Float}     Returns self or current volume.
            */
           volume: function(vol) {
-            var self = this || Howler3;
+            var self = this || Howler4;
             vol = parseFloat(vol);
             if (!self.ctx) {
               setupAudioContext();
@@ -76,7 +76,7 @@
                 return self;
               }
               if (self.usingWebAudio) {
-                self.masterGain.gain.setValueAtTime(vol, Howler3.ctx.currentTime);
+                self.masterGain.gain.setValueAtTime(vol, Howler4.ctx.currentTime);
               }
               for (var i6 = 0; i6 < self._howls.length; i6++) {
                 if (!self._howls[i6]._webAudio) {
@@ -98,13 +98,13 @@
            * @param  {Boolean} muted Is muted or not.
            */
           mute: function(muted) {
-            var self = this || Howler3;
+            var self = this || Howler4;
             if (!self.ctx) {
               setupAudioContext();
             }
             self._muted = muted;
             if (self.usingWebAudio) {
-              self.masterGain.gain.setValueAtTime(muted ? 0 : self._volume, Howler3.ctx.currentTime);
+              self.masterGain.gain.setValueAtTime(muted ? 0 : self._volume, Howler4.ctx.currentTime);
             }
             for (var i6 = 0; i6 < self._howls.length; i6++) {
               if (!self._howls[i6]._webAudio) {
@@ -123,7 +123,7 @@
            * Handle stopping all sounds globally.
            */
           stop: function() {
-            var self = this || Howler3;
+            var self = this || Howler4;
             for (var i6 = 0; i6 < self._howls.length; i6++) {
               self._howls[i6].stop();
             }
@@ -134,7 +134,7 @@
            * @return {Howler}
            */
           unload: function() {
-            var self = this || Howler3;
+            var self = this || Howler4;
             for (var i6 = self._howls.length - 1; i6 >= 0; i6--) {
               self._howls[i6].unload();
             }
@@ -151,14 +151,14 @@
            * @return {Boolean}
            */
           codecs: function(ext) {
-            return (this || Howler3)._codecs[ext.replace(/^x-/, "")];
+            return (this || Howler4)._codecs[ext.replace(/^x-/, "")];
           },
           /**
            * Setup various state values for global tracking.
            * @return {Howler}
            */
           _setup: function() {
-            var self = this || Howler3;
+            var self = this || Howler4;
             self.state = self.ctx ? self.ctx.state || "suspended" : "suspended";
             self._autoSuspend();
             if (!self.usingWebAudio) {
@@ -192,7 +192,7 @@
            * @return {Howler}
            */
           _setupCodecs: function() {
-            var self = this || Howler3;
+            var self = this || Howler4;
             var audioTest = null;
             try {
               audioTest = typeof Audio !== "undefined" ? new Audio() : null;
@@ -235,7 +235,7 @@
            * @return {Howler}
            */
           _unlockAudio: function() {
-            var self = this || Howler3;
+            var self = this || Howler4;
             if (self._audioUnlocked || !self.ctx) {
               return;
             }
@@ -305,7 +305,7 @@
            * @return {Audio} HTML5 Audio object.
            */
           _obtainHtml5Audio: function() {
-            var self = this || Howler3;
+            var self = this || Howler4;
             if (self._html5AudioPool.length) {
               return self._html5AudioPool.pop();
             }
@@ -322,7 +322,7 @@
            * @return {Howler}
            */
           _releaseHtml5Audio: function(audio) {
-            var self = this || Howler3;
+            var self = this || Howler4;
             if (audio._unlocked) {
               self._html5AudioPool.push(audio);
             }
@@ -335,7 +335,7 @@
            */
           _autoSuspend: function() {
             var self = this;
-            if (!self.autoSuspend || !self.ctx || typeof self.ctx.suspend === "undefined" || !Howler3.usingWebAudio) {
+            if (!self.autoSuspend || !self.ctx || typeof self.ctx.suspend === "undefined" || !Howler4.usingWebAudio) {
               return;
             }
             for (var i6 = 0; i6 < self._howls.length; i6++) {
@@ -373,7 +373,7 @@
            */
           _autoResume: function() {
             var self = this;
-            if (!self.ctx || typeof self.ctx.resume === "undefined" || !Howler3.usingWebAudio) {
+            if (!self.ctx || typeof self.ctx.resume === "undefined" || !Howler4.usingWebAudio) {
               return;
             }
             if (self.state === "running" && self.ctx.state !== "interrupted" && self._suspendTimer) {
@@ -396,7 +396,7 @@
             return self;
           }
         };
-        var Howler3 = new HowlerGlobal2();
+        var Howler4 = new HowlerGlobal2();
         var Howl3 = function(o5) {
           var self = this;
           if (!o5.src || o5.src.length === 0) {
@@ -413,7 +413,7 @@
            */
           init: function(o5) {
             var self = this;
-            if (!Howler3.ctx) {
+            if (!Howler4.ctx) {
               setupAudioContext();
             }
             self._autoplay = o5.autoplay || false;
@@ -452,11 +452,11 @@
             self._onseek = o5.onseek ? [{ fn: o5.onseek }] : [];
             self._onunlock = o5.onunlock ? [{ fn: o5.onunlock }] : [];
             self._onresume = [];
-            self._webAudio = Howler3.usingWebAudio && !self._html5;
-            if (typeof Howler3.ctx !== "undefined" && Howler3.ctx && Howler3.autoUnlock) {
-              Howler3._unlockAudio();
+            self._webAudio = Howler4.usingWebAudio && !self._html5;
+            if (typeof Howler4.ctx !== "undefined" && Howler4.ctx && Howler4.autoUnlock) {
+              Howler4._unlockAudio();
             }
-            Howler3._howls.push(self);
+            Howler4._howls.push(self);
             if (self._autoplay) {
               self._queue.push({
                 event: "play",
@@ -477,7 +477,7 @@
           load: function() {
             var self = this;
             var url = null;
-            if (Howler3.noAudio) {
+            if (Howler4.noAudio) {
               self._emit("loaderror", null, "No audio support.");
               return;
             }
@@ -505,7 +505,7 @@
               if (!ext) {
                 console.warn('No file extension was found. Consider using the "format" property or specify an extension.');
               }
-              if (ext && Howler3.codecs(ext)) {
+              if (ext && Howler4.codecs(ext)) {
                 url = self._src[i6];
                 break;
               }
@@ -583,7 +583,7 @@
               return sound._id;
             }
             if (self._webAudio) {
-              Howler3._autoResume();
+              Howler4._autoResume();
             }
             var seek = Math.max(0, sound._seek > 0 ? sound._seek : self._sprite[sprite][0] / 1e3);
             var duration = Math.max(0, (self._sprite[sprite][0] + self._sprite[sprite][1]) / 1e3 - seek);
@@ -610,8 +610,8 @@
                 setParams();
                 self._refreshBuffer(sound);
                 var vol = sound._muted || self._muted ? 0 : sound._volume;
-                node.gain.setValueAtTime(vol, Howler3.ctx.currentTime);
-                sound._playStart = Howler3.ctx.currentTime;
+                node.gain.setValueAtTime(vol, Howler4.ctx.currentTime);
+                sound._playStart = Howler4.ctx.currentTime;
                 if (typeof node.bufferSource.start === "undefined") {
                   sound._loop ? node.bufferSource.noteGrainOn(0, seek, 86400) : node.bufferSource.noteGrainOn(0, seek, duration);
                 } else {
@@ -627,7 +627,7 @@
                   }, 0);
                 }
               };
-              if (Howler3.state === "running" && Howler3.ctx.state !== "interrupted") {
+              if (Howler4.state === "running" && Howler4.ctx.state !== "interrupted") {
                 playWebAudio();
               } else {
                 self._playLock = true;
@@ -637,8 +637,8 @@
             } else {
               var playHtml5 = function() {
                 node.currentTime = seek;
-                node.muted = sound._muted || self._muted || Howler3._muted || node.muted;
-                node.volume = sound._volume * Howler3.volume();
+                node.muted = sound._muted || self._muted || Howler4._muted || node.muted;
+                node.volume = sound._volume * Howler4.volume();
                 node.playbackRate = sound._rate;
                 try {
                   var play = node.play();
@@ -686,7 +686,7 @@
                 node.src = self._src;
                 node.load();
               }
-              var loadedNoReadyState = window && window.ejecta || !node.readyState && Howler3._navigator.isCocoonJS;
+              var loadedNoReadyState = window && window.ejecta || !node.readyState && Howler4._navigator.isCocoonJS;
               if (node.readyState >= 3 || loadedNoReadyState) {
                 playHtml5();
               } else {
@@ -695,9 +695,9 @@
                 var listener = function() {
                   self._state = "loaded";
                   playHtml5();
-                  node.removeEventListener(Howler3._canPlayEvent, listener, false);
+                  node.removeEventListener(Howler4._canPlayEvent, listener, false);
                 };
-                node.addEventListener(Howler3._canPlayEvent, listener, false);
+                node.addEventListener(Howler4._canPlayEvent, listener, false);
                 self._clearTimer(sound._id);
               }
             }
@@ -835,9 +835,9 @@
                   self._stopFade(sound._id);
                 }
                 if (self._webAudio && sound._node) {
-                  sound._node.gain.setValueAtTime(muted ? 0 : sound._volume, Howler3.ctx.currentTime);
+                  sound._node.gain.setValueAtTime(muted ? 0 : sound._volume, Howler4.ctx.currentTime);
                 } else if (sound._node) {
-                  sound._node.muted = Howler3._muted ? true : muted;
+                  sound._node.muted = Howler4._muted ? true : muted;
                 }
                 self._emit("mute", sound._id);
               }
@@ -893,9 +893,9 @@
                     self._stopFade(id[i6]);
                   }
                   if (self._webAudio && sound._node && !sound._muted) {
-                    sound._node.gain.setValueAtTime(vol, Howler3.ctx.currentTime);
+                    sound._node.gain.setValueAtTime(vol, Howler4.ctx.currentTime);
                   } else if (sound._node && !sound._muted) {
-                    sound._node.volume = vol * Howler3.volume();
+                    sound._node.volume = vol * Howler4.volume();
                   }
                   self._emit("volume", sound._id);
                 }
@@ -937,7 +937,7 @@
                   self._stopFade(ids[i6]);
                 }
                 if (self._webAudio && !sound._muted) {
-                  var currentTime = Howler3.ctx.currentTime;
+                  var currentTime = Howler4.ctx.currentTime;
                   var end = currentTime + len / 1e3;
                   sound._volume = from;
                   sound._node.gain.setValueAtTime(from, currentTime);
@@ -1003,7 +1003,7 @@
             var sound = self._soundById(id);
             if (sound && sound._interval) {
               if (self._webAudio) {
-                sound._node.gain.cancelScheduledValues(Howler3.ctx.currentTime);
+                sound._node.gain.cancelScheduledValues(Howler4.ctx.currentTime);
               }
               clearInterval(sound._interval);
               sound._interval = null;
@@ -1105,11 +1105,11 @@
                 if (sound) {
                   if (self.playing(id[i6])) {
                     sound._rateSeek = self.seek(id[i6]);
-                    sound._playStart = self._webAudio ? Howler3.ctx.currentTime : sound._playStart;
+                    sound._playStart = self._webAudio ? Howler4.ctx.currentTime : sound._playStart;
                   }
                   sound._rate = rate;
                   if (self._webAudio && sound._node && sound._node.bufferSource) {
-                    sound._node.bufferSource.playbackRate.setValueAtTime(rate, Howler3.ctx.currentTime);
+                    sound._node.bufferSource.playbackRate.setValueAtTime(rate, Howler4.ctx.currentTime);
                   } else if (sound._node) {
                     sound._node.playbackRate = rate;
                   }
@@ -1203,7 +1203,7 @@
                 }
               } else {
                 if (self._webAudio) {
-                  var realTime = self.playing(id) ? Howler3.ctx.currentTime - sound._playStart : 0;
+                  var realTime = self.playing(id) ? Howler4.ctx.currentTime - sound._playStart : 0;
                   var rateSeek = sound._rateSeek ? sound._rateSeek - sound._seek : 0;
                   return sound._seek + (rateSeek + realTime * Math.abs(sound._rate));
                 } else {
@@ -1266,20 +1266,20 @@
               if (!self._webAudio) {
                 self._clearSound(sounds[i6]._node);
                 sounds[i6]._node.removeEventListener("error", sounds[i6]._errorFn, false);
-                sounds[i6]._node.removeEventListener(Howler3._canPlayEvent, sounds[i6]._loadFn, false);
+                sounds[i6]._node.removeEventListener(Howler4._canPlayEvent, sounds[i6]._loadFn, false);
                 sounds[i6]._node.removeEventListener("ended", sounds[i6]._endFn, false);
-                Howler3._releaseHtml5Audio(sounds[i6]._node);
+                Howler4._releaseHtml5Audio(sounds[i6]._node);
               }
               delete sounds[i6]._node;
               self._clearTimer(sounds[i6]._id);
             }
-            var index = Howler3._howls.indexOf(self);
+            var index = Howler4._howls.indexOf(self);
             if (index >= 0) {
-              Howler3._howls.splice(index, 1);
+              Howler4._howls.splice(index, 1);
             }
             var remCache = true;
-            for (i6 = 0; i6 < Howler3._howls.length; i6++) {
-              if (Howler3._howls[i6]._src === self._src || self._src.indexOf(Howler3._howls[i6]._src) >= 0) {
+            for (i6 = 0; i6 < Howler4._howls.length; i6++) {
+              if (Howler4._howls[i6]._src === self._src || self._src.indexOf(Howler4._howls[i6]._src) >= 0) {
                 remCache = false;
                 break;
               }
@@ -1287,7 +1287,7 @@
             if (cache && remCache) {
               delete cache[self._src];
             }
-            Howler3.noAudio = false;
+            Howler4.noAudio = false;
             self._state = "unloaded";
             self._sounds = [];
             self = null;
@@ -1420,7 +1420,7 @@
               self._emit("play", sound._id);
               sound._seek = sound._start || 0;
               sound._rateSeek = 0;
-              sound._playStart = Howler3.ctx.currentTime;
+              sound._playStart = Howler4.ctx.currentTime;
               var timeout = (sound._stop - sound._start) * 1e3 / Math.abs(sound._rate);
               self._endTimers[sound._id] = setTimeout(self._ended.bind(self, sound), timeout);
             }
@@ -1431,7 +1431,7 @@
               sound._rateSeek = 0;
               self._clearTimer(sound._id);
               self._cleanBuffer(sound._node);
-              Howler3._autoSuspend();
+              Howler4._autoSuspend();
             }
             if (!self._webAudio && !loop) {
               self.stop(sound._id, true);
@@ -1539,7 +1539,7 @@
            */
           _refreshBuffer: function(sound) {
             var self = this;
-            sound._node.bufferSource = Howler3.ctx.createBufferSource();
+            sound._node.bufferSource = Howler4.ctx.createBufferSource();
             sound._node.bufferSource.buffer = cache[self._src];
             if (sound._panner) {
               sound._node.bufferSource.connect(sound._panner);
@@ -1551,7 +1551,7 @@
               sound._node.bufferSource.loopStart = sound._start || 0;
               sound._node.bufferSource.loopEnd = sound._stop || 0;
             }
-            sound._node.bufferSource.playbackRate.setValueAtTime(sound._rate, Howler3.ctx.currentTime);
+            sound._node.bufferSource.playbackRate.setValueAtTime(sound._rate, Howler4.ctx.currentTime);
             return self;
           },
           /**
@@ -1561,16 +1561,16 @@
            */
           _cleanBuffer: function(node) {
             var self = this;
-            var isIOS = Howler3._navigator && Howler3._navigator.vendor.indexOf("Apple") >= 0;
+            var isIOS = Howler4._navigator && Howler4._navigator.vendor.indexOf("Apple") >= 0;
             if (!node.bufferSource) {
               return self;
             }
-            if (Howler3._scratchBuffer && node.bufferSource) {
+            if (Howler4._scratchBuffer && node.bufferSource) {
               node.bufferSource.onended = null;
               node.bufferSource.disconnect(0);
               if (isIOS) {
                 try {
-                  node.bufferSource.buffer = Howler3._scratchBuffer;
+                  node.bufferSource.buffer = Howler4._scratchBuffer;
                 } catch (e6) {
                 }
               }
@@ -1583,7 +1583,7 @@
            * @param  {Object} node Audio node to clear.
            */
           _clearSound: function(node) {
-            var checkIE = /MSIE |Trident\//.test(Howler3._navigator && Howler3._navigator.userAgent);
+            var checkIE = /MSIE |Trident\//.test(Howler4._navigator && Howler4._navigator.userAgent);
             if (!checkIE) {
               node.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
             }
@@ -1609,7 +1609,7 @@
             self._paused = true;
             self._ended = true;
             self._sprite = "__default";
-            self._id = ++Howler3._counter;
+            self._id = ++Howler4._counter;
             parent._sounds.push(self);
             self.create();
             return self;
@@ -1621,23 +1621,23 @@
           create: function() {
             var self = this;
             var parent = self._parent;
-            var volume = Howler3._muted || self._muted || self._parent._muted ? 0 : self._volume;
+            var volume = Howler4._muted || self._muted || self._parent._muted ? 0 : self._volume;
             if (parent._webAudio) {
-              self._node = typeof Howler3.ctx.createGain === "undefined" ? Howler3.ctx.createGainNode() : Howler3.ctx.createGain();
-              self._node.gain.setValueAtTime(volume, Howler3.ctx.currentTime);
+              self._node = typeof Howler4.ctx.createGain === "undefined" ? Howler4.ctx.createGainNode() : Howler4.ctx.createGain();
+              self._node.gain.setValueAtTime(volume, Howler4.ctx.currentTime);
               self._node.paused = true;
-              self._node.connect(Howler3.masterGain);
-            } else if (!Howler3.noAudio) {
-              self._node = Howler3._obtainHtml5Audio();
+              self._node.connect(Howler4.masterGain);
+            } else if (!Howler4.noAudio) {
+              self._node = Howler4._obtainHtml5Audio();
               self._errorFn = self._errorListener.bind(self);
               self._node.addEventListener("error", self._errorFn, false);
               self._loadFn = self._loadListener.bind(self);
-              self._node.addEventListener(Howler3._canPlayEvent, self._loadFn, false);
+              self._node.addEventListener(Howler4._canPlayEvent, self._loadFn, false);
               self._endFn = self._endListener.bind(self);
               self._node.addEventListener("ended", self._endFn, false);
               self._node.src = parent._src;
               self._node.preload = parent._preload === true ? "auto" : parent._preload;
-              self._node.volume = volume * Howler3.volume();
+              self._node.volume = volume * Howler4.volume();
               self._node.load();
             }
             return self;
@@ -1658,7 +1658,7 @@
             self._paused = true;
             self._ended = true;
             self._sprite = "__default";
-            self._id = ++Howler3._counter;
+            self._id = ++Howler4._counter;
             return self;
           },
           /**
@@ -1684,7 +1684,7 @@
               parent._emit("load");
               parent._loadQueue();
             }
-            self._node.removeEventListener(Howler3._canPlayEvent, self._loadFn, false);
+            self._node.removeEventListener(Howler4._canPlayEvent, self._loadFn, false);
           },
           /**
            * HTML5 Audio ended listener callback.
@@ -1766,10 +1766,10 @@
               error();
             }
           };
-          if (typeof Promise !== "undefined" && Howler3.ctx.decodeAudioData.length === 1) {
-            Howler3.ctx.decodeAudioData(arraybuffer).then(success).catch(error);
+          if (typeof Promise !== "undefined" && Howler4.ctx.decodeAudioData.length === 1) {
+            Howler4.ctx.decodeAudioData(arraybuffer).then(success).catch(error);
           } else {
-            Howler3.ctx.decodeAudioData(arraybuffer, success, error);
+            Howler4.ctx.decodeAudioData(arraybuffer, success, error);
           }
         };
         var loadSound = function(self, buffer) {
@@ -1786,59 +1786,59 @@
           }
         };
         var setupAudioContext = function() {
-          if (!Howler3.usingWebAudio) {
+          if (!Howler4.usingWebAudio) {
             return;
           }
           try {
             if (typeof AudioContext !== "undefined") {
-              Howler3.ctx = new AudioContext();
+              Howler4.ctx = new AudioContext();
             } else if (typeof webkitAudioContext !== "undefined") {
-              Howler3.ctx = new webkitAudioContext();
+              Howler4.ctx = new webkitAudioContext();
             } else {
-              Howler3.usingWebAudio = false;
+              Howler4.usingWebAudio = false;
             }
           } catch (e6) {
-            Howler3.usingWebAudio = false;
+            Howler4.usingWebAudio = false;
           }
-          if (!Howler3.ctx) {
-            Howler3.usingWebAudio = false;
+          if (!Howler4.ctx) {
+            Howler4.usingWebAudio = false;
           }
-          var iOS = /iP(hone|od|ad)/.test(Howler3._navigator && Howler3._navigator.platform);
-          var appVersion = Howler3._navigator && Howler3._navigator.appVersion.match(/OS (\d+)_(\d+)_?(\d+)?/);
+          var iOS = /iP(hone|od|ad)/.test(Howler4._navigator && Howler4._navigator.platform);
+          var appVersion = Howler4._navigator && Howler4._navigator.appVersion.match(/OS (\d+)_(\d+)_?(\d+)?/);
           var version = appVersion ? parseInt(appVersion[1], 10) : null;
           if (iOS && version && version < 9) {
-            var safari = /safari/.test(Howler3._navigator && Howler3._navigator.userAgent.toLowerCase());
-            if (Howler3._navigator && !safari) {
-              Howler3.usingWebAudio = false;
+            var safari = /safari/.test(Howler4._navigator && Howler4._navigator.userAgent.toLowerCase());
+            if (Howler4._navigator && !safari) {
+              Howler4.usingWebAudio = false;
             }
           }
-          if (Howler3.usingWebAudio) {
-            Howler3.masterGain = typeof Howler3.ctx.createGain === "undefined" ? Howler3.ctx.createGainNode() : Howler3.ctx.createGain();
-            Howler3.masterGain.gain.setValueAtTime(Howler3._muted ? 0 : Howler3._volume, Howler3.ctx.currentTime);
-            Howler3.masterGain.connect(Howler3.ctx.destination);
+          if (Howler4.usingWebAudio) {
+            Howler4.masterGain = typeof Howler4.ctx.createGain === "undefined" ? Howler4.ctx.createGainNode() : Howler4.ctx.createGain();
+            Howler4.masterGain.gain.setValueAtTime(Howler4._muted ? 0 : Howler4._volume, Howler4.ctx.currentTime);
+            Howler4.masterGain.connect(Howler4.ctx.destination);
           }
-          Howler3._setup();
+          Howler4._setup();
         };
         if (typeof define === "function" && define.amd) {
           define([], function() {
             return {
-              Howler: Howler3,
+              Howler: Howler4,
               Howl: Howl3
             };
           });
         }
         if (typeof exports !== "undefined") {
-          exports.Howler = Howler3;
+          exports.Howler = Howler4;
           exports.Howl = Howl3;
         }
         if (typeof global !== "undefined") {
           global.HowlerGlobal = HowlerGlobal2;
-          global.Howler = Howler3;
+          global.Howler = Howler4;
           global.Howl = Howl3;
           global.Sound = Sound2;
         } else if (typeof window !== "undefined") {
           window.HowlerGlobal = HowlerGlobal2;
-          window.Howler = Howler3;
+          window.Howler = Howler4;
           window.Howl = Howl3;
           window.Sound = Sound2;
         }
@@ -2810,6 +2810,8 @@
       this.currentIndex = -1;
       this.onEnd = null;
       this.onProgress = null;
+      this.onPlayStateChange = null;
+      this.analyser = null;
       this._progressTimer = null;
     }
     get tracks() {
@@ -2855,21 +2857,26 @@
       this.currentIndex = index;
       this.currentHowl = new import_howler.Howl({
         src: [track.url],
-        html5: true,
+        // Web Audio path enables AnalyserNode tap (loads full WAV into memory).
+        html5: false,
         volume: Howler.volume(),
+        onplay: () => {
+          this.analyser?.attach(this.currentHowl);
+          this.analyser?.start();
+          this.onPlayStateChange?.(true);
+        },
         onend: () => {
-          this._clearProgress();
-          this.currentHowl = null;
-          this.currentIndex = -1;
-          this.onEnd?.();
+          this._handlePlaybackEnd();
         },
         onloaderror: () => {
-          this._clearProgress();
-          this.onEnd?.();
+          this._handlePlaybackEnd();
         },
         onplayerror: () => {
-          this._clearProgress();
-          this.onEnd?.();
+          this._handlePlaybackEnd();
+        },
+        onstop: () => {
+          this.analyser?.stop();
+          this.onPlayStateChange?.(false);
         }
       });
       this.currentHowl.play();
@@ -2894,6 +2901,8 @@
     stop(fireEnd = true) {
       this._clearProgress();
       if (this.currentHowl) {
+        this.analyser?.stop();
+        this.onPlayStateChange?.(false);
         this.currentHowl.stop();
         this.currentHowl.unload();
         this.currentHowl = null;
@@ -2912,6 +2921,14 @@
       const index = this.addLocalFile(file);
       if (index < 0) return false;
       return this.play(index);
+    }
+    _handlePlaybackEnd() {
+      this._clearProgress();
+      this.analyser?.stop();
+      this.onPlayStateChange?.(false);
+      this.currentHowl = null;
+      this.currentIndex = -1;
+      this.onEnd?.();
     }
     _clearProgress() {
       if (this._progressTimer) {
@@ -3891,6 +3908,554 @@
   };
   customElements.define("gameboy-console", GameboyConsole);
 
+  // src-player/backgrounds/netstalgiaThemes.js
+  var BACKGROUND_THEMES = [
+    {
+      id: "gamedude",
+      label: "GameDude Stripes",
+      type: "css",
+      className: "bg-gamedude-default",
+      group: "default"
+    },
+    {
+      id: "pattern-dots",
+      label: "Win95 Dots",
+      type: "css",
+      className: "bg-pattern-dots",
+      group: "css"
+    },
+    {
+      id: "pattern-grid",
+      label: "Win95 Grid",
+      type: "css",
+      className: "bg-pattern-grid",
+      group: "css"
+    },
+    {
+      id: "dither-blue",
+      label: "Dither Blue",
+      type: "css",
+      className: "dithered-gradient-blue",
+      group: "css"
+    },
+    {
+      id: "dither-green",
+      label: "Dither Green",
+      type: "css",
+      className: "dithered-gradient-green",
+      group: "css"
+    },
+    {
+      id: "dither-red",
+      label: "Dither Red",
+      type: "css",
+      className: "dithered-gradient-red",
+      group: "css"
+    },
+    {
+      id: "dither-gray",
+      label: "Dither Gray",
+      type: "css",
+      className: "dithered-gradient-gray",
+      group: "css"
+    },
+    {
+      id: "pixel-checker",
+      label: "Pixel Checkerboard",
+      type: "css",
+      className: "pixel-pattern-checkerboard",
+      group: "css"
+    },
+    {
+      id: "pixel-dots",
+      label: "Pixel Dots",
+      type: "css",
+      className: "pixel-pattern-dots",
+      group: "css"
+    },
+    {
+      id: "pixel-grid",
+      label: "Pixel Grid",
+      type: "css",
+      className: "pixel-pattern-grid",
+      group: "css"
+    },
+    {
+      id: "pixel-diagonal",
+      label: "Pixel Diagonal",
+      type: "css",
+      className: "pixel-pattern-diagonal",
+      group: "css"
+    },
+    {
+      id: "pixel-brick",
+      label: "Pixel Brick",
+      type: "css",
+      className: "pixel-pattern-brick",
+      group: "css"
+    },
+    {
+      id: "starfield",
+      label: "Starfield Warp",
+      type: "canvas",
+      renderer: "starfield",
+      underlayClass: "bg-canvas-underlay",
+      group: "canvas"
+    },
+    {
+      id: "matrix",
+      label: "Matrix Rain",
+      type: "canvas",
+      renderer: "matrix",
+      underlayClass: "bg-canvas-underlay-matrix",
+      group: "canvas"
+    }
+  ];
+  var ALL_THEME_CLASS_NAMES = BACKGROUND_THEMES.filter((t4) => t4.className).map(
+    (t4) => t4.className
+  );
+  var FX_THEME_OPTIONS = BACKGROUND_THEMES.filter((t4) => t4.id !== "gamedude");
+  function getThemeById(id) {
+    return BACKGROUND_THEMES.find((t4) => t4.id === id) ?? BACKGROUND_THEMES[0];
+  }
+
+  // src-player/backgrounds/canvas/StarfieldRenderer.js
+  var STAR_COLORS = ["#ffffff", "#ffff99", "#99ccff", "#ff9999"];
+  var StarfieldRenderer = class {
+    constructor() {
+      this._canvas = null;
+      this._ctx = null;
+      this._stars = [];
+      this._raf = null;
+      this._warpSpeed = 1;
+      this._metrics = { bass: 0, mid: 0, treble: 0, rms: 0 };
+      this._onResize = () => this._resize();
+    }
+    start(canvas) {
+      this.stop();
+      this._canvas = canvas;
+      this._ctx = canvas.getContext("2d");
+      this._resize();
+      window.addEventListener("resize", this._onResize);
+      this._initStars();
+      this._loop();
+    }
+    stop() {
+      window.removeEventListener("resize", this._onResize);
+      if (this._raf) {
+        cancelAnimationFrame(this._raf);
+        this._raf = null;
+      }
+      if (this._ctx && this._canvas) {
+        this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+      }
+      this._stars = [];
+    }
+    setMetrics(metrics) {
+      this._metrics = metrics ?? { bass: 0, mid: 0, treble: 0, rms: 0 };
+      this._warpSpeed = 1 + this._metrics.bass * 2.5 + this._metrics.rms * 0.5;
+    }
+    _resize() {
+      if (!this._canvas) return;
+      this._canvas.width = window.innerWidth;
+      this._canvas.height = window.innerHeight;
+      if (this._stars.length) this._initStars();
+    }
+    _initStars() {
+      const canvas = this._canvas;
+      if (!canvas) return;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const numStars = 600;
+      this._stars = Array.from({ length: numStars }, () => {
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.random() * 1e3;
+        return {
+          x: centerX + Math.cos(angle) * distance,
+          y: centerY + Math.sin(angle) * distance,
+          z: Math.random() * 1e3,
+          prevX: 0,
+          prevY: 0,
+          speed: Math.random() * 2 + 0.5,
+          color: STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)],
+          size: Math.random() * 2 + 1
+        };
+      });
+    }
+    _loop() {
+      const canvas = this._canvas;
+      const ctx = this._ctx;
+      if (!canvas || !ctx) return;
+      ctx.fillStyle = `rgba(0, 0, 20, ${0.08 + this._metrics.rms * 0.06})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const warp = this._warpSpeed;
+      for (const star of this._stars) {
+        star.prevX = star.x;
+        star.prevY = star.y;
+        star.z -= star.speed * warp;
+        if (star.z <= 0) {
+          const angle = Math.random() * Math.PI * 2;
+          const distance = Math.random() * 1e3;
+          star.x = centerX + Math.cos(angle) * distance;
+          star.y = centerY + Math.sin(angle) * distance;
+          star.z = 1e3;
+          star.color = STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)];
+        }
+        const screenX = (star.x - centerX) * (200 / star.z) + centerX;
+        const screenY = (star.y - centerY) * (200 / star.z) + centerY;
+        const prevScreenX = (star.prevX - centerX) * (200 / (star.z + star.speed * warp)) + centerX;
+        const prevScreenY = (star.prevY - centerY) * (200 / (star.z + star.speed * warp)) + centerY;
+        if (screenX < 0 || screenX > canvas.width || screenY < 0 || screenY > canvas.height) {
+          continue;
+        }
+        const size = (1 - star.z / 1e3) * star.size * 3;
+        const opacity = Math.max(0, 1 - star.z / 1e3);
+        if (warp > 1.5) {
+          ctx.strokeStyle = `${star.color}${Math.floor(opacity * 100).toString(16).padStart(2, "0")}`;
+          ctx.lineWidth = size * 0.5;
+          ctx.beginPath();
+          ctx.moveTo(prevScreenX, prevScreenY);
+          ctx.lineTo(screenX, screenY);
+          ctx.stroke();
+        }
+        ctx.fillStyle = `${star.color}${Math.floor(opacity * 255).toString(16).padStart(2, "0")}`;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      this._raf = requestAnimationFrame(() => this._loop());
+    }
+  };
+
+  // src-player/backgrounds/canvas/MatrixRenderer.js
+  var MATRIX_CHARS = [
+    "\u30A2",
+    "\u30A4",
+    "\u30A6",
+    "\u30A8",
+    "\u30AA",
+    "\u30AB",
+    "\u30AD",
+    "\u30AF",
+    "\u30B1",
+    "\u30B3",
+    "\u30B5",
+    "\u30B7",
+    "\u30B9",
+    "\u30BB",
+    "\u30BD",
+    "\u30BF",
+    "\u30C1",
+    "\u30C4",
+    "\u30C6",
+    "\u30C8",
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "!",
+    "@",
+    "#",
+    "$",
+    "%",
+    "&",
+    "*",
+    "+",
+    "=",
+    "?"
+  ];
+  function randomChar() {
+    return MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
+  }
+  var MatrixRenderer = class {
+    constructor() {
+      this._canvas = null;
+      this._ctx = null;
+      this._columns = [];
+      this._raf = null;
+      this._speedMul = 1;
+      this._metrics = { bass: 0, mid: 0, treble: 0, rms: 0 };
+      this._onResize = () => this._resize();
+    }
+    start(canvas) {
+      this.stop();
+      this._canvas = canvas;
+      this._ctx = canvas.getContext("2d");
+      this._resize();
+      window.addEventListener("resize", this._onResize);
+      this._loop();
+    }
+    stop() {
+      window.removeEventListener("resize", this._onResize);
+      if (this._raf) {
+        cancelAnimationFrame(this._raf);
+        this._raf = null;
+      }
+      if (this._ctx && this._canvas) {
+        this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+      }
+      this._columns = [];
+    }
+    setMetrics(metrics) {
+      this._metrics = metrics ?? { bass: 0, mid: 0, treble: 0, rms: 0 };
+      this._speedMul = 1 + this._metrics.treble * 2 + this._metrics.rms * 0.75;
+    }
+    _resize() {
+      if (!this._canvas) return;
+      this._canvas.width = window.innerWidth;
+      this._canvas.height = window.innerHeight;
+      this._initColumns();
+    }
+    _initColumns() {
+      const canvas = this._canvas;
+      if (!canvas) return;
+      const columnWidth = 20;
+      const numColumns = Math.max(1, Math.floor(canvas.width / columnWidth));
+      this._columns = Array.from({ length: numColumns }, (_2, i6) => ({
+        x: i6 * columnWidth,
+        y: Math.random() * canvas.height,
+        speed: Math.random() * 3 + 1,
+        chars: Array.from({ length: 30 }, randomChar),
+        opacity: Array.from({ length: 30 }, (_3, j) => Math.max(0, 1 - j * 0.05))
+      }));
+    }
+    _loop() {
+      const canvas = this._canvas;
+      const ctx = this._ctx;
+      if (!canvas || !ctx) return;
+      ctx.fillStyle = `rgba(0, 0, 0, ${0.05 + this._metrics.rms * 0.03})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const speedMul = this._speedMul;
+      for (const column of this._columns) {
+        for (let i6 = 0; i6 < column.chars.length; i6++) {
+          const y3 = column.y + i6 * 20;
+          if (y3 > canvas.height) {
+            column.y = -600;
+            column.speed = Math.random() * 3 + 1;
+            column.chars = Array.from({ length: 30 }, randomChar);
+          }
+          const opacity = column.opacity[i6] || 0;
+          if (i6 === 0) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+          } else if (i6 < 5) {
+            ctx.fillStyle = `rgba(0, 255, 0, ${opacity})`;
+          } else {
+            ctx.fillStyle = `rgba(0, 150, 0, ${opacity * 0.7})`;
+          }
+          ctx.font = "16px Courier New, monospace";
+          ctx.fillText(column.chars[i6], column.x, y3);
+          if (Math.random() < 0.02) {
+            column.chars[i6] = randomChar();
+          }
+        }
+        column.y += column.speed * speedMul;
+      }
+      this._raf = requestAnimationFrame(() => this._loop());
+    }
+  };
+
+  // src-player/backgrounds/BackgroundController.js
+  var STORAGE_ENABLED = "gamedude.bgFxEnabled";
+  var STORAGE_THEME = "gamedude.bgTheme";
+  var IDLE_METRICS = { rms: 0, bass: 0, mid: 0, treble: 0 };
+  var BackgroundController = class {
+    constructor(bgLayer, canvasEl, controlsEl) {
+      this.bgLayer = bgLayer;
+      this.canvasEl = canvasEl;
+      this.controlsEl = controlsEl;
+      this.fxEnabled = localStorage.getItem(STORAGE_ENABLED) === "true";
+      this.themeId = localStorage.getItem(STORAGE_THEME) || FX_THEME_OPTIONS[0]?.id || "dither-blue";
+      this.audioReactive = false;
+      this._metrics = IDLE_METRICS;
+      this._renderers = {
+        starfield: new StarfieldRenderer(),
+        matrix: new MatrixRenderer()
+      };
+      this._activeRenderer = null;
+      this._buildControls();
+      this._applyTheme();
+    }
+    get isFxEnabled() {
+      return this.fxEnabled;
+    }
+    setAudioReactive(active) {
+      this.audioReactive = active && this.fxEnabled;
+      this.bgLayer.dataset.audioReactive = this.audioReactive ? "true" : "false";
+      if (!this.audioReactive) {
+        this.applyAudioMetrics(IDLE_METRICS);
+      } else {
+        this.applyAudioMetrics(this._metrics);
+      }
+    }
+    applyAudioMetrics(metrics) {
+      this._metrics = metrics ?? IDLE_METRICS;
+      if (!this.fxEnabled || !this.audioReactive) {
+        this._setCssVars(IDLE_METRICS);
+        this._activeRenderer?.setMetrics?.(IDLE_METRICS);
+        return;
+      }
+      this._setCssVars(this._metrics);
+      this._activeRenderer?.setMetrics?.(this._metrics);
+    }
+    _setCssVars({ rms, bass, mid, treble }) {
+      this.bgLayer.style.setProperty("--audio-rms", String(rms));
+      this.bgLayer.style.setProperty("--audio-bass", String(bass));
+      this.bgLayer.style.setProperty("--audio-mid", String(mid));
+      this.bgLayer.style.setProperty("--audio-treble", String(treble));
+    }
+    _buildControls() {
+      this.controlsEl.className = "bg-fx-controls";
+      this.controlsEl.innerHTML = `
+      <label class="bg-fx-toggle-wrap">
+        <span class="bg-fx-label">BG FX</span>
+        <input type="checkbox" class="bg-fx-toggle" role="switch" aria-label="Toggle Netstalgia backgrounds" />
+        <span class="bg-fx-thumb-track" aria-hidden="true"><span class="bg-fx-thumb"></span></span>
+      </label>
+      <select class="bg-fx-select" aria-label="Background theme" hidden></select>
+    `;
+      this.toggleInput = this.controlsEl.querySelector(".bg-fx-toggle");
+      this.selectEl = this.controlsEl.querySelector(".bg-fx-select");
+      this.toggleInput.checked = this.fxEnabled;
+      this.selectEl.hidden = !this.fxEnabled;
+      for (const theme of FX_THEME_OPTIONS) {
+        const opt = document.createElement("option");
+        opt.value = theme.id;
+        opt.textContent = theme.label;
+        if (theme.group === "canvas") opt.dataset.group = "canvas";
+        else opt.dataset.group = "css";
+        if (theme.id === this.themeId) opt.selected = true;
+        this.selectEl.appendChild(opt);
+      }
+      this.toggleInput.addEventListener("change", () => {
+        this.fxEnabled = this.toggleInput.checked;
+        localStorage.setItem(STORAGE_ENABLED, String(this.fxEnabled));
+        this.selectEl.hidden = !this.fxEnabled;
+        this._applyTheme();
+      });
+      this.selectEl.addEventListener("change", () => {
+        this.themeId = this.selectEl.value;
+        localStorage.setItem(STORAGE_THEME, this.themeId);
+        this._applyTheme();
+      });
+    }
+    _applyTheme() {
+      this._stopCanvasRenderer();
+      for (const cls of ALL_THEME_CLASS_NAMES) {
+        this.bgLayer.classList.remove(cls);
+      }
+      this.bgLayer.classList.remove("bg-canvas-underlay", "bg-canvas-underlay-matrix");
+      if (!this.fxEnabled) {
+        this.bgLayer.classList.add("bg-gamedude-default");
+        this.canvasEl.hidden = true;
+        this.setAudioReactive(false);
+        return;
+      }
+      const theme = getThemeById(this.themeId);
+      if (theme.type === "canvas") {
+        this.bgLayer.classList.add(theme.underlayClass ?? "bg-canvas-underlay");
+        this.canvasEl.hidden = false;
+        this._activeRenderer = this._renderers[theme.renderer];
+        this._activeRenderer?.start(this.canvasEl);
+        this._activeRenderer?.setMetrics(this._metrics);
+      } else {
+        this.bgLayer.classList.add(theme.className);
+        this.canvasEl.hidden = true;
+        this._activeRenderer = null;
+      }
+      this.setAudioReactive(this.audioReactive);
+    }
+    _stopCanvasRenderer() {
+      for (const renderer of Object.values(this._renderers)) {
+        renderer.stop();
+      }
+      this._activeRenderer = null;
+    }
+  };
+
+  // src-player/audio/AudioAnalyser.js
+  var import_howler3 = __toESM(require_howler(), 1);
+  var IDLE_METRICS2 = { rms: 0, bass: 0, mid: 0, treble: 0 };
+  var AudioAnalyser = class {
+    constructor() {
+      this.onFrame = null;
+      this._analyser = null;
+      this._data = null;
+      this._raf = null;
+      this._wired = false;
+    }
+    attach(_howl) {
+      this._ensureGraph();
+    }
+    start() {
+      this._ensureGraph();
+      if (this._raf || !this._analyser) return;
+      const tick = () => {
+        if (!this._analyser || !this._data) return;
+        this._analyser.getByteFrequencyData(this._data);
+        this.onFrame?.(this._computeBands(this._data));
+        this._raf = requestAnimationFrame(tick);
+      };
+      this._raf = requestAnimationFrame(tick);
+    }
+    stop() {
+      if (this._raf) {
+        cancelAnimationFrame(this._raf);
+        this._raf = null;
+      }
+      this.onFrame?.(IDLE_METRICS2);
+    }
+    _ensureGraph() {
+      const ctx = import_howler3.Howler.ctx;
+      if (!ctx) return;
+      if (!this._analyser) {
+        this._analyser = ctx.createAnalyser();
+        this._analyser.fftSize = 256;
+        this._analyser.smoothingTimeConstant = 0.75;
+        this._data = new Uint8Array(this._analyser.frequencyBinCount);
+      }
+      if (!this._wired && import_howler3.Howler.masterGain) {
+        try {
+          import_howler3.Howler.masterGain.disconnect();
+        } catch {
+        }
+        import_howler3.Howler.masterGain.connect(this._analyser);
+        this._analyser.connect(ctx.destination);
+        this._wired = true;
+      }
+    }
+    _computeBands(data) {
+      const len = data.length;
+      if (!len) return IDLE_METRICS2;
+      let sum = 0;
+      for (let i6 = 0; i6 < len; i6++) sum += data[i6];
+      const rms = sum / (len * 255);
+      const sampleRate = import_howler3.Howler.ctx?.sampleRate ?? 44100;
+      const binHz = sampleRate / this._analyser.fftSize;
+      const bassEnd = Math.max(1, Math.min(len, Math.floor(150 / binHz)));
+      const midEnd = Math.max(bassEnd + 1, Math.min(len, Math.floor(2e3 / binHz)));
+      let bassSum = 0;
+      let midSum = 0;
+      let trebleSum = 0;
+      for (let i6 = 0; i6 < bassEnd; i6++) bassSum += data[i6];
+      for (let i6 = bassEnd; i6 < midEnd; i6++) midSum += data[i6];
+      for (let i6 = midEnd; i6 < len; i6++) trebleSum += data[i6];
+      return {
+        rms,
+        bass: bassSum / (bassEnd * 255),
+        mid: midSum / ((midEnd - bassEnd) * 255),
+        treble: trebleSum / ((len - midEnd) * 255)
+      };
+    }
+  };
+
   // src-player/index.js
   var KEY_MAP = {
     ArrowUp: { action: "dpad", direction: "up" },
@@ -3907,6 +4472,32 @@
     s: { action: "select" },
     S: { action: "select" }
   };
+  function getMenuCatalog() {
+    const gb = document.querySelector("gameboy-console");
+    return gb?.shadowRoot?.querySelector("game-dude-menu-screen")?.catalog ?? null;
+  }
+  function initBackgroundFx() {
+    const bgLayer = document.getElementById("retro-bg-layer");
+    const canvasEl = document.getElementById("retro-bg-canvas");
+    const controlsEl = document.getElementById("bg-fx-controls");
+    if (!bgLayer || !canvasEl || !controlsEl) return;
+    const bgController = new BackgroundController(bgLayer, canvasEl, controlsEl);
+    const analyser = new AudioAnalyser();
+    analyser.onFrame = (metrics) => bgController.applyAudioMetrics(metrics);
+    const attachCatalog = () => {
+      const catalog = getMenuCatalog();
+      if (!catalog) {
+        requestAnimationFrame(attachCatalog);
+        return;
+      }
+      catalog.analyser = analyser;
+      catalog.onPlayStateChange = (playing) => {
+        bgController.setAudioReactive(playing);
+      };
+    };
+    attachCatalog();
+  }
+  document.addEventListener("DOMContentLoaded", initBackgroundFx);
   document.addEventListener("keydown", (e6) => {
     const mapped = KEY_MAP[e6.key];
     if (!mapped) return;

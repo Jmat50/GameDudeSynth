@@ -27,6 +27,8 @@ export class WavCatalog {
     this.currentIndex = -1;
     this.onEnd = null;
     this.onProgress = null;
+    this.onPlayStateChange = null;
+    this.analyser = null;
     this._progressTimer = null;
   }
 
@@ -80,21 +82,26 @@ export class WavCatalog {
     this.currentIndex = index;
     this.currentHowl = new Howl({
       src: [track.url],
-      html5: true,
+      // Web Audio path enables AnalyserNode tap (loads full WAV into memory).
+      html5: false,
       volume: Howler.volume(),
+      onplay: () => {
+        this.analyser?.attach(this.currentHowl);
+        this.analyser?.start();
+        this.onPlayStateChange?.(true);
+      },
       onend: () => {
-        this._clearProgress();
-        this.currentHowl = null;
-        this.currentIndex = -1;
-        this.onEnd?.();
+        this._handlePlaybackEnd();
       },
       onloaderror: () => {
-        this._clearProgress();
-        this.onEnd?.();
+        this._handlePlaybackEnd();
       },
       onplayerror: () => {
-        this._clearProgress();
-        this.onEnd?.();
+        this._handlePlaybackEnd();
+      },
+      onstop: () => {
+        this.analyser?.stop();
+        this.onPlayStateChange?.(false);
       },
     });
 
@@ -122,6 +129,8 @@ export class WavCatalog {
   stop(fireEnd = true) {
     this._clearProgress();
     if (this.currentHowl) {
+      this.analyser?.stop();
+      this.onPlayStateChange?.(false);
       this.currentHowl.stop();
       this.currentHowl.unload();
       this.currentHowl = null;
@@ -143,6 +152,15 @@ export class WavCatalog {
     const index = this.addLocalFile(file);
     if (index < 0) return false;
     return this.play(index);
+  }
+
+  _handlePlaybackEnd() {
+    this._clearProgress();
+    this.analyser?.stop();
+    this.onPlayStateChange?.(false);
+    this.currentHowl = null;
+    this.currentIndex = -1;
+    this.onEnd?.();
   }
 
   _clearProgress() {
