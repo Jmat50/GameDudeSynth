@@ -2811,7 +2811,7 @@
       this.onEnd = null;
       this.onProgress = null;
       this.onPlayStateChange = null;
-      this.analyser = null;
+      this.audioTap = null;
       this._progressTimer = null;
     }
     get tracks() {
@@ -2861,8 +2861,7 @@
         html5: false,
         volume: Howler.volume(),
         onplay: () => {
-          this.analyser?.attach(this.currentHowl);
-          this.analyser?.start();
+          this.audioTap?.start();
           this.onPlayStateChange?.(true);
         },
         onend: () => {
@@ -2875,7 +2874,7 @@
           this._handlePlaybackEnd();
         },
         onstop: () => {
-          this.analyser?.stop();
+          this.audioTap?.stop();
           this.onPlayStateChange?.(false);
         }
       });
@@ -2901,7 +2900,7 @@
     stop(fireEnd = true) {
       this._clearProgress();
       if (this.currentHowl) {
-        this.analyser?.stop();
+        this.audioTap?.stop();
         this.onPlayStateChange?.(false);
         this.currentHowl.stop();
         this.currentHowl.unload();
@@ -2924,7 +2923,7 @@
     }
     _handlePlaybackEnd() {
       this._clearProgress();
-      this.analyser?.stop();
+      this.audioTap?.stop();
       this.onPlayStateChange?.(false);
       this.currentHowl = null;
       this.currentIndex = -1;
@@ -3908,1153 +3907,316 @@
   };
   customElements.define("gameboy-console", GameboyConsole);
 
-  // src-player/backgrounds/netstalgiaThemes.js
-  var ASSET_BASE = "./public/vendor/netstalgia";
-  var BACKGROUND_THEMES = [
-    {
-      id: "gamedude",
-      label: "GameDude Stripes",
-      type: "css",
-      className: "bg-gamedude-default",
-      group: "default"
-    },
-    {
-      id: "pattern-dots",
-      label: "Win95 Dots",
-      type: "css",
-      className: "bg-pattern-dots",
-      group: "css"
-    },
-    {
-      id: "pattern-grid",
-      label: "Win95 Grid",
-      type: "css",
-      className: "bg-pattern-grid",
-      group: "css"
-    },
-    {
-      id: "dither-blue",
-      label: "Dither Blue",
-      type: "css",
-      className: "dithered-gradient-blue",
-      group: "css"
-    },
-    {
-      id: "dither-green",
-      label: "Dither Green",
-      type: "css",
-      className: "dithered-gradient-green",
-      group: "css"
-    },
-    {
-      id: "dither-red",
-      label: "Dither Red",
-      type: "css",
-      className: "dithered-gradient-red",
-      group: "css"
-    },
-    {
-      id: "dither-gray",
-      label: "Dither Gray",
-      type: "css",
-      className: "dithered-gradient-gray",
-      group: "css"
-    },
-    {
-      id: "pixel-checker",
-      label: "Pixel Checkerboard",
-      type: "css",
-      className: "pixel-pattern-checkerboard",
-      group: "css"
-    },
-    {
-      id: "pixel-dots",
-      label: "Pixel Dots",
-      type: "css",
-      className: "pixel-pattern-dots",
-      group: "css"
-    },
-    {
-      id: "pixel-grid",
-      label: "Pixel Grid",
-      type: "css",
-      className: "pixel-pattern-grid",
-      group: "css"
-    },
-    {
-      id: "pixel-diagonal",
-      label: "Pixel Diagonal",
-      type: "css",
-      className: "pixel-pattern-diagonal",
-      group: "css"
-    },
-    {
-      id: "pixel-brick",
-      label: "Pixel Brick",
-      type: "css",
-      className: "pixel-pattern-brick",
-      group: "css"
-    },
-    {
-      id: "win95-desktop",
-      label: "Win95 Desktop Teal",
-      type: "css",
-      className: "bg-win95-teal",
-      group: "css"
-    },
-    {
-      id: "starfield",
-      label: "Starfield Warp",
-      type: "canvas",
-      renderer: "starfield",
-      underlayClass: "bg-canvas-underlay",
-      group: "canvas"
-    },
-    {
-      id: "matrix",
-      label: "Matrix Rain",
-      type: "canvas",
-      renderer: "matrix",
-      underlayClass: "bg-canvas-underlay-matrix",
-      group: "canvas"
-    },
-    {
-      id: "toasters",
-      label: "Flying Toasters",
-      type: "canvas",
-      renderer: "toasters",
-      underlayClass: "bg-canvas-underlay",
-      group: "canvas"
-    },
-    {
-      id: "dialup",
-      label: "Dial-Up Modem",
-      type: "scene",
-      renderer: "dialup",
-      underlayClass: "bg-scene-underlay",
-      group: "scenes"
-    },
-    {
-      id: "bsod",
-      label: "Blue Screen of Death",
-      type: "scene",
-      renderer: "bsod",
-      underlayClass: "bg-scene-underlay",
-      group: "scenes"
-    },
-    {
-      id: "under-construction",
-      label: "Under Construction",
-      type: "scene",
-      renderer: "underConstruction",
-      group: "scenes"
-    },
-    {
-      id: "crt",
-      label: "CRT Scanlines",
-      type: "scene",
-      renderer: "crtStandalone",
-      underlayClass: "bg-crt-underlay",
-      group: "scenes"
-    }
-  ];
-  var THEME_GROUP_LABELS = {
-    css: "CSS Patterns",
-    canvas: "Canvas FX",
-    scenes: "Netstalgia Scenes"
-  };
-  var ALL_THEME_CLASS_NAMES = BACKGROUND_THEMES.filter((t4) => t4.className).map(
-    (t4) => t4.className
-  );
-  var FX_THEME_OPTIONS = BACKGROUND_THEMES.filter((t4) => t4.id !== "gamedude");
-  function getThemeById(id) {
-    return BACKGROUND_THEMES.find((t4) => t4.id === id) ?? BACKGROUND_THEMES[0];
+  // src-player/visualizer/ProjectMController.js
+  var STORAGE_ENABLED = "gamedude.vizEnabled";
+  var STORAGE_OPACITY = "gamedude.vizOpacity";
+  function vendorBaseUrl() {
+    return new URL("./public/vendor/projectm/", window.location.href).href;
   }
-
-  // src-player/backgrounds/canvas/StarfieldRenderer.js
-  var STAR_COLORS = ["#ffffff", "#ffff99", "#99ccff", "#ff9999"];
-  var StarfieldRenderer = class {
-    constructor() {
-      this._canvas = null;
-      this._ctx = null;
-      this._stars = [];
-      this._raf = null;
-      this._warpSpeed = 1;
-      this._metrics = { bass: 0, mid: 0, treble: 0, rms: 0 };
-      this._onResize = () => this._resize();
-    }
-    start(canvas) {
-      this.stop();
-      this._canvas = canvas;
-      this._ctx = canvas.getContext("2d");
-      this._resize();
-      window.addEventListener("resize", this._onResize);
-      this._initStars();
-      this._loop();
-    }
-    stop() {
-      window.removeEventListener("resize", this._onResize);
-      if (this._raf) {
-        cancelAnimationFrame(this._raf);
-        this._raf = null;
-      }
-      if (this._ctx && this._canvas) {
-        this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
-      }
-      this._stars = [];
-    }
-    setMetrics(metrics) {
-      this._metrics = metrics ?? { bass: 0, mid: 0, treble: 0, rms: 0 };
-      this._warpSpeed = 1 + this._metrics.bass * 2.5 + this._metrics.rms * 0.5;
-    }
-    _resize() {
-      if (!this._canvas) return;
-      this._canvas.width = window.innerWidth;
-      this._canvas.height = window.innerHeight;
-      if (this._stars.length) this._initStars();
-    }
-    _initStars() {
-      const canvas = this._canvas;
-      if (!canvas) return;
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const numStars = 600;
-      this._stars = Array.from({ length: numStars }, () => {
-        const angle = Math.random() * Math.PI * 2;
-        const distance = Math.random() * 1e3;
-        return {
-          x: centerX + Math.cos(angle) * distance,
-          y: centerY + Math.sin(angle) * distance,
-          z: Math.random() * 1e3,
-          prevX: 0,
-          prevY: 0,
-          speed: Math.random() * 2 + 0.5,
-          color: STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)],
-          size: Math.random() * 2 + 1
-        };
-      });
-    }
-    _loop() {
-      const canvas = this._canvas;
-      const ctx = this._ctx;
-      if (!canvas || !ctx) return;
-      ctx.fillStyle = `rgba(0, 0, 20, ${0.08 + this._metrics.rms * 0.06})`;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const warp = this._warpSpeed;
-      for (const star of this._stars) {
-        star.prevX = star.x;
-        star.prevY = star.y;
-        star.z -= star.speed * warp;
-        if (star.z <= 0) {
-          const angle = Math.random() * Math.PI * 2;
-          const distance = Math.random() * 1e3;
-          star.x = centerX + Math.cos(angle) * distance;
-          star.y = centerY + Math.sin(angle) * distance;
-          star.z = 1e3;
-          star.color = STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)];
-        }
-        const screenX = (star.x - centerX) * (200 / star.z) + centerX;
-        const screenY = (star.y - centerY) * (200 / star.z) + centerY;
-        const prevScreenX = (star.prevX - centerX) * (200 / (star.z + star.speed * warp)) + centerX;
-        const prevScreenY = (star.prevY - centerY) * (200 / (star.z + star.speed * warp)) + centerY;
-        if (screenX < 0 || screenX > canvas.width || screenY < 0 || screenY > canvas.height) {
-          continue;
-        }
-        const size = (1 - star.z / 1e3) * star.size * 3;
-        const opacity = Math.max(0, 1 - star.z / 1e3);
-        if (warp > 1.5) {
-          ctx.strokeStyle = `${star.color}${Math.floor(opacity * 100).toString(16).padStart(2, "0")}`;
-          ctx.lineWidth = size * 0.5;
-          ctx.beginPath();
-          ctx.moveTo(prevScreenX, prevScreenY);
-          ctx.lineTo(screenX, screenY);
-          ctx.stroke();
-        }
-        ctx.fillStyle = `${star.color}${Math.floor(opacity * 255).toString(16).padStart(2, "0")}`;
-        ctx.beginPath();
-        ctx.arc(screenX, screenY, size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      this._raf = requestAnimationFrame(() => this._loop());
-    }
-  };
-
-  // src-player/backgrounds/canvas/MatrixRenderer.js
-  var MATRIX_CHARS = [
-    "\u30A2",
-    "\u30A4",
-    "\u30A6",
-    "\u30A8",
-    "\u30AA",
-    "\u30AB",
-    "\u30AD",
-    "\u30AF",
-    "\u30B1",
-    "\u30B3",
-    "\u30B5",
-    "\u30B7",
-    "\u30B9",
-    "\u30BB",
-    "\u30BD",
-    "\u30BF",
-    "\u30C1",
-    "\u30C4",
-    "\u30C6",
-    "\u30C8",
-    "0",
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
-    "!",
-    "@",
-    "#",
-    "$",
-    "%",
-    "&",
-    "*",
-    "+",
-    "=",
-    "?"
-  ];
-  function randomChar() {
-    return MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
-  }
-  var MatrixRenderer = class {
-    constructor() {
-      this._canvas = null;
-      this._ctx = null;
-      this._columns = [];
-      this._raf = null;
-      this._speedMul = 1;
-      this._metrics = { bass: 0, mid: 0, treble: 0, rms: 0 };
-      this._onResize = () => this._resize();
-    }
-    start(canvas) {
-      this.stop();
-      this._canvas = canvas;
-      this._ctx = canvas.getContext("2d");
-      this._resize();
-      window.addEventListener("resize", this._onResize);
-      this._loop();
-    }
-    stop() {
-      window.removeEventListener("resize", this._onResize);
-      if (this._raf) {
-        cancelAnimationFrame(this._raf);
-        this._raf = null;
-      }
-      if (this._ctx && this._canvas) {
-        this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
-      }
-      this._columns = [];
-    }
-    setMetrics(metrics) {
-      this._metrics = metrics ?? { bass: 0, mid: 0, treble: 0, rms: 0 };
-      this._speedMul = 1 + this._metrics.treble * 2 + this._metrics.rms * 0.75;
-    }
-    _resize() {
-      if (!this._canvas) return;
-      this._canvas.width = window.innerWidth;
-      this._canvas.height = window.innerHeight;
-      this._initColumns();
-    }
-    _initColumns() {
-      const canvas = this._canvas;
-      if (!canvas) return;
-      const columnWidth = 20;
-      const numColumns = Math.max(1, Math.floor(canvas.width / columnWidth));
-      this._columns = Array.from({ length: numColumns }, (_2, i6) => ({
-        x: i6 * columnWidth,
-        y: Math.random() * canvas.height,
-        speed: Math.random() * 3 + 1,
-        chars: Array.from({ length: 30 }, randomChar),
-        opacity: Array.from({ length: 30 }, (_3, j) => Math.max(0, 1 - j * 0.05))
-      }));
-    }
-    _loop() {
-      const canvas = this._canvas;
-      const ctx = this._ctx;
-      if (!canvas || !ctx) return;
-      ctx.fillStyle = `rgba(0, 0, 0, ${0.05 + this._metrics.rms * 0.03})`;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const speedMul = this._speedMul;
-      for (const column of this._columns) {
-        for (let i6 = 0; i6 < column.chars.length; i6++) {
-          const y3 = column.y + i6 * 20;
-          if (y3 > canvas.height) {
-            column.y = -600;
-            column.speed = Math.random() * 3 + 1;
-            column.chars = Array.from({ length: 30 }, randomChar);
-          }
-          const opacity = column.opacity[i6] || 0;
-          if (i6 === 0) {
-            ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-          } else if (i6 < 5) {
-            ctx.fillStyle = `rgba(0, 255, 0, ${opacity})`;
-          } else {
-            ctx.fillStyle = `rgba(0, 150, 0, ${opacity * 0.7})`;
-          }
-          ctx.font = "16px Courier New, monospace";
-          ctx.fillText(column.chars[i6], column.x, y3);
-          if (Math.random() < 0.02) {
-            column.chars[i6] = randomChar();
-          }
-        }
-        column.y += column.speed * speedMul;
-      }
-      this._raf = requestAnimationFrame(() => this._loop());
-    }
-  };
-
-  // src-player/backgrounds/canvas/FlyingToastersRenderer.js
-  var FlyingToastersRenderer = class {
-    constructor() {
-      this._canvas = null;
-      this._ctx = null;
-      this._toasters = [];
-      this._stars = [];
-      this._raf = null;
-      this._metrics = { rms: 0, bass: 0, mid: 0, treble: 0 };
-      this._onResize = () => this._resize();
-    }
-    start(canvas) {
-      this.stop();
-      this._canvas = canvas;
-      this._ctx = canvas.getContext("2d");
-      this._resize();
-      window.addEventListener("resize", this._onResize);
-      this._initToasters();
-      this._initStars();
-      this._loop();
-    }
-    stop() {
-      window.removeEventListener("resize", this._onResize);
-      if (this._raf) {
-        cancelAnimationFrame(this._raf);
-        this._raf = null;
-      }
-      if (this._ctx && this._canvas) {
-        this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
-      }
-      this._toasters = [];
-      this._stars = [];
-    }
-    setMetrics(metrics) {
-      this._metrics = metrics ?? { rms: 0, bass: 0, mid: 0, treble: 0 };
-      const target = Math.min(16, 6 + Math.floor(this._metrics.treble * 10 + this._metrics.rms * 4));
-      while (this._toasters.length < target && this._canvas) {
-        this._toasters.push(this._spawnToaster());
-      }
-      while (this._toasters.length > target) {
-        this._toasters.pop();
-      }
-    }
-    _resize() {
-      if (!this._canvas) return;
-      this._canvas.width = window.innerWidth;
-      this._canvas.height = window.innerHeight;
-      if (this._toasters.length === 0) this._initToasters();
-      if (this._stars.length === 0) this._initStars();
-    }
-    _spawnToaster() {
-      const w2 = this._canvas?.width ?? 800;
-      const h3 = this._canvas?.height ?? 600;
-      return {
-        x: Math.random() * w2,
-        y: Math.random() * h3,
-        speed: Math.random() * 2 + 1,
-        direction: Math.random() * Math.PI * 2,
-        size: Math.random() * 20 + 20
-      };
-    }
-    _initToasters() {
-      const count = 8;
-      this._toasters = Array.from({ length: count }, () => this._spawnToaster());
-    }
-    _initStars() {
-      const w2 = this._canvas?.width ?? 800;
-      const h3 = this._canvas?.height ?? 600;
-      this._stars = Array.from({ length: 50 }, () => ({
-        x: Math.random() * w2,
-        y: Math.random() * h3,
-        phase: Math.random() * Math.PI * 2
-      }));
-    }
-    _loop() {
-      const canvas = this._canvas;
-      const ctx = this._ctx;
-      if (!canvas || !ctx) return;
-      ctx.fillStyle = "#000014";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const t4 = Date.now() / 1e3;
-      for (const star of this._stars) {
-        const alpha = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t4 * 2 + star.phase));
-        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-        ctx.fillRect(star.x, star.y, 2, 2);
-      }
-      const speedMul = 1 + this._metrics.treble * 1.5 + this._metrics.rms * 0.5;
-      ctx.font = "24px serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      for (const toaster of this._toasters) {
-        let nx = toaster.x + Math.cos(toaster.direction) * toaster.speed * speedMul;
-        let ny = toaster.y + Math.sin(toaster.direction) * toaster.speed * speedMul;
-        if (nx < 0 || nx > canvas.width - toaster.size) {
-          toaster.direction = Math.PI - toaster.direction;
-          nx = Math.max(0, Math.min(canvas.width - toaster.size, nx));
-        }
-        if (ny < 0 || ny > canvas.height - toaster.size) {
-          toaster.direction = -toaster.direction;
-          ny = Math.max(0, Math.min(canvas.height - toaster.size, ny));
-        }
-        toaster.x = nx;
-        toaster.y = ny;
-        ctx.fillText("\u{1F35E}", nx + toaster.size / 2, ny + toaster.size / 2);
-      }
-      this._raf = requestAnimationFrame(() => this._loop());
-    }
-  };
-
-  // src-player/backgrounds/scenes/DialUpScene.js
-  var DIAL_UP_MESSAGES = [
-    "Initializing modem...",
-    "Dialing Internet Service Provider...",
-    "Handshaking with modem...",
-    "Negotiating connection speed...",
-    "Establishing PPP connection...",
-    "Verifying username and password...",
-    "Registering on network...",
-    "Connection established successfully!"
-  ];
-  var CONNECTION_SPEEDS = [
-    { speed: "14.4 Kbps", multiplier: 2.5 },
-    { speed: "28.8 Kbps", multiplier: 2 },
-    { speed: "33.6 Kbps", multiplier: 1.5 },
-    { speed: "56K V.90", multiplier: 1 },
-    { speed: "56K V.92", multiplier: 0.8 }
-  ];
-  function pickSpeed() {
-    return CONNECTION_SPEEDS[Math.floor(Math.random() * CONNECTION_SPEEDS.length)];
-  }
-  var DialUpScene = class {
-    constructor() {
-      this._container = null;
-      this._progress = 0;
-      this._step = 0;
-      this._dialAttempt = 1;
-      this._speed = pickSpeed();
-      this._metrics = { rms: 0, bass: 0, mid: 0, treble: 0 };
-      this._timer = null;
-      this._blocks = [];
-      this._progressEl = null;
-      this._statusEl = null;
-      this._attemptEl = null;
-      this._speedEl = null;
-    }
-    start(container) {
-      this.stop();
-      this._container = container;
-      this._speed = pickSpeed();
-      this._progress = 0;
-      this._step = 0;
-      this._dialAttempt = 1;
-      container.innerHTML = `
-      <div class="loading-screen-container">
-        <div class="loading-window">
-          <div class="loading-titlebar">
-            <span>Dialing Progress</span>
-            <span>_ \u25A1 \xD7</span>
-          </div>
-          <div class="loading-content">
-            <img class="loading-gif" src="${ASSET_BASE}/dialup.gif" alt="" width="280" height="120" />
-            <div class="loading-progress-track"></div>
-            <div class="loading-status"></div>
-            <div class="loading-meta">
-              <div class="loading-speed"></div>
-              <div class="loading-attempt"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-      const track = container.querySelector(".loading-progress-track");
-      this._blocks = Array.from({ length: 20 }, () => {
-        const block = document.createElement("div");
-        block.className = "loading-progress-block";
-        track.appendChild(block);
-        return block;
-      });
-      this._progressEl = container.querySelector(".loading-status");
-      this._attemptEl = container.querySelector(".loading-attempt");
-      this._speedEl = container.querySelector(".loading-speed");
-      this._speedEl.textContent = `Speed: ${this._speed.speed}`;
-      this._updateUi();
-      this._timer = setInterval(() => this._tick(), 50);
-    }
-    stop() {
-      if (this._timer) {
-        clearInterval(this._timer);
-        this._timer = null;
-      }
-      if (this._container) {
-        this._container.innerHTML = "";
-        this._container = null;
-      }
-    }
-    setMetrics(metrics) {
-      this._metrics = metrics ?? { rms: 0, bass: 0, mid: 0, treble: 0 };
-    }
-    _tick() {
-      const rate = 0.8 * this._speed.multiplier * (1 + this._metrics.bass * 1.5 + this._metrics.rms * 0.5);
-      this._progress = Math.min(100, this._progress + rate);
-      if (this._progress >= 100) {
-        this._progress = 0;
-        this._step = (this._step + 1) % DIAL_UP_MESSAGES.length;
-        if (this._step === 0) {
-          this._dialAttempt += 1;
-          this._speed = pickSpeed();
-        }
-      }
-      this._updateUi();
-    }
-    _updateUi() {
-      if (!this._progressEl) return;
-      this._progressEl.textContent = DIAL_UP_MESSAGES[this._step];
-      if (this._attemptEl) {
-        this._attemptEl.textContent = `Dialing Attempt ${this._dialAttempt} OF ${this._speed.multiplier > 2 ? 7 : 5}`;
-      }
-      if (this._speedEl) {
-        this._speedEl.textContent = `Speed: ${this._speed.speed}`;
-      }
-      for (let i6 = 0; i6 < this._blocks.length; i6++) {
-        const blockProgress = (i6 + 1) * 5;
-        const block = this._blocks[i6];
-        block.classList.remove("active", "partial");
-        if (this._progress >= blockProgress) {
-          block.classList.add("active");
-        } else if (this._progress > i6 * 5) {
-          block.classList.add("partial");
-        }
-      }
-    }
-  };
-
-  // src-player/backgrounds/scenes/BsodScene.js
-  var AUTHENTIC_ERRORS = [
-    {
-      code: "0E",
-      address: "0028:C001E36",
-      module: "VXD VMM(01)",
-      offset: "00010E36",
-      description: "FATAL EXCEPTION: General Protection Fault"
-    },
-    {
-      code: "0D",
-      address: "0028:C0025F42",
-      module: "VXD VWIN32(01)",
-      offset: "00005F42",
-      description: "FATAL EXCEPTION: Stack Fault"
-    },
-    {
-      code: "06",
-      address: "0028:C002A1B8",
-      module: "VXD SHELL(01)",
-      offset: "0000A1B8",
-      description: "FATAL EXCEPTION: Invalid Opcode"
-    },
-    {
-      code: "0C",
-      address: "0028:C0031D74",
-      module: "VXD KERNEL32(01)",
-      offset: "00001D74",
-      description: "FATAL EXCEPTION: Stack Overflow"
-    }
-  ];
-  var CRASH_REASONS = [
-    "User clicked suspicious popup advertisement",
-    "Attempted to download 'FREE_SCREENSAVER.EXE'",
-    "Opened email attachment 'ILOVEYOU.VBS'",
-    "Installed Bonzi Buddy without reading EULA",
-    "Clicked 'You are visitor #1,000,000!'"
-  ];
-  var SYSTEM_SPECS = [
-    "Intel Pentium 133 MHz",
-    "16 MB RAM (8 MB available)",
-    "1.2 GB Hard Drive (98% full)",
-    "Creative Sound Blaster 16",
-    "Diamond Stealth 64 Video (2MB)",
-    "US Robotics 56K Sportster Modem"
-  ];
-  var _beepPlayed = false;
-  function playCrashSound() {
-    if (_beepPlayed) return;
-    _beepPlayed = true;
+  function supportsWebGL2() {
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc1 = ctx.createOscillator();
-      const osc2 = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc1.connect(gain);
-      osc2.connect(gain);
-      gain.connect(ctx.destination);
-      osc1.frequency.value = 200;
-      osc2.frequency.value = 150;
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-      osc1.start(ctx.currentTime);
-      osc2.start(ctx.currentTime);
-      osc1.stop(ctx.currentTime + 0.5);
-      osc2.stop(ctx.currentTime + 0.5);
+      const canvas = document.createElement("canvas");
+      return !!canvas.getContext("webgl2");
     } catch {
+      return false;
     }
   }
-  function pickRandom(list) {
-    return list[Math.floor(Math.random() * list.length)];
+  function resolveProjectMFactory() {
+    if (typeof window.createProjectMModule === "function") {
+      return Promise.resolve(window.createProjectMModule);
+    }
+    return Promise.reject(
+      new Error(
+        "projectm.js not loaded. Ensure gamedude-player.html includes ./public/vendor/projectm/projectm.js"
+      )
+    );
   }
-  var BsodScene = class {
-    constructor() {
-      this._container = null;
-      this._cursorEl = null;
-      this._screenEl = null;
-      this._cursorTimer = null;
-      this._metrics = { rms: 0, bass: 0, mid: 0, treble: 0 };
-      this._showCursor = true;
-    }
-    start(container) {
-      this.stop();
-      playCrashSound();
-      this._container = container;
-      const err = pickRandom(AUTHENTIC_ERRORS);
-      const reason = pickRandom(CRASH_REASONS);
-      const now = /* @__PURE__ */ new Date();
-      const body = `Microsoft Windows
-Copyright (C) Microsoft Corp 1981-1998.
-
-A fatal exception ${err.code} has occurred at ${err.address} in VXD ${err.module} +
-${err.offset}. The current application will be terminated.
-
-${err.description}
-
-* Press any key to terminate the current application.
-* Press CTRL+ALT+DEL again to restart your computer. You will
-  lose any unsaved information in all open applications.
-
-System Information:
-Computer: ${SYSTEM_SPECS[0]}
-Memory: ${SYSTEM_SPECS[1]}
-Storage: ${SYSTEM_SPECS[2]}
-Sound: ${SYSTEM_SPECS[3]}
-Video: ${SYSTEM_SPECS[4]}
-Modem: ${SYSTEM_SPECS[5]}
-
-Error Details:
-Cause: ${reason}
-Date: ${now.toLocaleDateString("en-US")}
-Time: ${now.toLocaleTimeString("en-US", { hour12: false })}
-
-Press any key to continue...
-`;
-      container.innerHTML = `
-      <div class="crash-screen">
-        <pre class="crash-text"></pre>
-        <span class="crash-cursor">\u2588</span>
-      </div>
-    `;
-      this._screenEl = container.querySelector(".crash-screen");
-      container.querySelector(".crash-text").textContent = body;
-      this._cursorEl = container.querySelector(".crash-cursor");
-      const blinkMs = () => 530 / (1 + this._metrics.rms * 0.4);
-      const blink = () => {
-        this._showCursor = !this._showCursor;
-        if (this._cursorEl) {
-          this._cursorEl.style.opacity = this._showCursor ? "1" : "0";
-        }
-        if (this._container) {
-          this._cursorTimer = setTimeout(blink, blinkMs());
-        }
-      };
-      blink();
-    }
-    stop() {
-      if (this._cursorTimer) {
-        clearTimeout(this._cursorTimer);
-        this._cursorTimer = null;
-      }
-      if (this._container) {
-        this._container.innerHTML = "";
-        this._container = null;
-      }
-    }
-    setMetrics(metrics) {
-      this._metrics = metrics ?? { rms: 0, bass: 0, mid: 0, treble: 0 };
-      if (this._screenEl) {
-        const jitter = this._metrics.bass * 3;
-        this._screenEl.style.transform = jitter > 0.05 ? `translateX(${jitter}px)` : "";
-      }
-    }
-  };
-
-  // src-player/backgrounds/scenes/UnderConstructionScene.js
-  var UnderConstructionScene = class {
-    constructor() {
-      this._container = null;
-      this._root = null;
-      this._metrics = { rms: 0, bass: 0, mid: 0, treble: 0 };
-    }
-    start(container) {
-      this.stop();
-      this._container = container;
-      container.innerHTML = `
-      <div class="under-construction-scene">
-        <div class="uc-banner top blink">Under Construction</div>
-        <div class="uc-banner mid blink">Coming Soon!</div>
-        <div class="uc-banner bottom blink">Best Viewed in Netscape</div>
-        <div class="uc-gif-tile a" aria-hidden="true"></div>
-        <div class="uc-gif-tile b" aria-hidden="true"></div>
-        <div class="uc-gif-tile c" aria-hidden="true"></div>
-      </div>
-    `;
-      this._root = container.querySelector(".under-construction-scene");
-    }
-    stop() {
-      if (this._container) {
-        this._container.innerHTML = "";
-        this._container = null;
-      }
-      this._root = null;
-    }
-    setMetrics(metrics) {
-      this._metrics = metrics ?? { rms: 0, bass: 0, mid: 0, treble: 0 };
-      if (!this._root) return;
-      this._root.style.setProperty("--audio-mid", String(this._metrics.mid));
-      this._root.style.setProperty("--audio-treble", String(this._metrics.treble));
-      this._root.dataset.audioReactive = "true";
-      const opacity = 0.7 + this._metrics.mid * 0.3;
-      for (const banner of this._root.querySelectorAll(".uc-banner")) {
-        banner.style.opacity = String(opacity);
-      }
-    }
-  };
-
-  // src-player/backgrounds/overlays/CrtOverlay.js
-  var CrtOverlay = class {
-    constructor({ standalone = false } = {}) {
-      this.standalone = standalone;
-      this._container = null;
-      this._active = false;
-      this._metrics = { rms: 0, bass: 0, mid: 0, treble: 0 };
-    }
-    start(container) {
-      this.stop();
-      this._container = container;
-      this._active = true;
-      if (this.standalone) {
-        container.classList.add("crt-standalone");
-      }
-      container.innerHTML = `
-      <div class="crt-flicker-enhanced" aria-hidden="true"></div>
-      <div class="crt-scanlines-enhanced" aria-hidden="true"></div>
-    `;
-      container.dataset.audioReactive = "true";
-      this.setMetrics(this._metrics);
-    }
-    stop() {
-      if (this._container) {
-        this._container.innerHTML = "";
-        this._container.classList.remove("crt-standalone");
-        this._container.dataset.audioReactive = "false";
-        this._container = null;
-      }
-      this._active = false;
-    }
-    setMetrics(metrics) {
-      this._metrics = metrics ?? { rms: 0, bass: 0, mid: 0, treble: 0 };
-      if (!this._container) return;
-      this._container.style.setProperty("--audio-rms", String(this._metrics.rms));
-      this._container.style.setProperty("--audio-mid", String(this._metrics.mid));
-    }
-  };
-
-  // src-player/backgrounds/BackgroundController.js
-  var STORAGE_ENABLED = "gamedude.bgFxEnabled";
-  var STORAGE_THEME = "gamedude.bgTheme";
-  var STORAGE_CRT = "gamedude.crtOverlay";
-  var IDLE_METRICS = { rms: 0, bass: 0, mid: 0, treble: 0 };
-  var EXTRA_LAYER_CLASSES = [
-    "bg-canvas-underlay",
-    "bg-canvas-underlay-matrix",
-    "bg-scene-underlay",
-    "bg-crt-underlay"
-  ];
-  var BackgroundController = class {
-    constructor(bgLayer, sceneEl, canvasEl, fxOverlayEl, controlsEl) {
-      this.bgLayer = bgLayer;
-      this.sceneEl = sceneEl;
-      this.canvasEl = canvasEl;
-      this.fxOverlayEl = fxOverlayEl;
+  var ProjectMController = class {
+    constructor(hostEl, controlsEl) {
+      this.hostEl = hostEl;
       this.controlsEl = controlsEl;
-      this.fxEnabled = localStorage.getItem(STORAGE_ENABLED) === "true";
-      this.crtOverlayEnabled = localStorage.getItem(STORAGE_CRT) === "true";
-      this.themeId = localStorage.getItem(STORAGE_THEME) || FX_THEME_OPTIONS[0]?.id || "dither-blue";
-      this.audioReactive = false;
-      this._metrics = IDLE_METRICS;
-      this._canvasRenderers = {
-        starfield: new StarfieldRenderer(),
-        matrix: new MatrixRenderer(),
-        toasters: new FlyingToastersRenderer()
-      };
-      this._sceneRenderers = {
-        dialup: new DialUpScene(),
-        bsod: new BsodScene(),
-        underConstruction: new UnderConstructionScene(),
-        crtStandalone: new CrtOverlay({ standalone: true })
-      };
-      this._stackCrt = new CrtOverlay({ standalone: false });
-      this._activeCanvas = null;
-      this._activeScene = null;
+      this.enabled = localStorage.getItem(STORAGE_ENABLED) === "true";
+      this.opacity = parseFloat(localStorage.getItem(STORAGE_OPACITY) ?? "0.88");
+      this.audioActive = false;
+      this._module = null;
+      this._raf = null;
+      this._resizeObserver = null;
+      this._statusEl = null;
+      this._error = null;
+      this._ready = false;
+      this._wasmBase = vendorBaseUrl();
+      this._scriptUrl = new URL("projectm.js", this._wasmBase).href;
+      document.documentElement.style.setProperty("--viz-opacity", String(this.opacity));
       this._buildControls();
-      this._applyTheme();
-    }
-    get isFxEnabled() {
-      return this.fxEnabled;
-    }
-    setAudioReactive(active) {
-      this.audioReactive = active && this.fxEnabled;
-      this.bgLayer.dataset.audioReactive = this.audioReactive ? "true" : "false";
-      this.fxOverlayEl.dataset.audioReactive = this.audioReactive ? "true" : "false";
-      if (!this.audioReactive) {
-        this.applyAudioMetrics(IDLE_METRICS);
-      } else {
-        this.applyAudioMetrics(this._metrics);
-      }
-    }
-    applyAudioMetrics(metrics) {
-      this._metrics = metrics ?? IDLE_METRICS;
-      const reactive = this.fxEnabled && this.audioReactive;
-      const payload = reactive ? this._metrics : IDLE_METRICS;
-      this._setCssVars(payload);
-      this._activeCanvas?.setMetrics?.(payload);
-      this._activeScene?.setMetrics?.(payload);
-      if (this._stackCrtActive()) {
-        this._stackCrt.setMetrics(payload);
-      }
-    }
-    _setCssVars({ rms, bass, mid, treble }) {
-      this.bgLayer.style.setProperty("--audio-rms", String(rms));
-      this.bgLayer.style.setProperty("--audio-bass", String(bass));
-      this.bgLayer.style.setProperty("--audio-mid", String(mid));
-      this.bgLayer.style.setProperty("--audio-treble", String(treble));
-    }
-    _stackCrtActive() {
-      if (!this.crtOverlayEnabled) return false;
-      if (!this.fxEnabled) return true;
-      return getThemeById(this.themeId).id !== "crt";
-    }
-    _buildControls() {
-      this.controlsEl.className = "bg-fx-controls";
-      this.controlsEl.innerHTML = `
-      <label class="bg-fx-toggle-wrap">
-        <span class="bg-fx-label">BG FX</span>
-        <input type="checkbox" class="bg-fx-toggle" role="switch" aria-label="Toggle Netstalgia backgrounds" />
-        <span class="bg-fx-thumb-track" aria-hidden="true"><span class="bg-fx-thumb"></span></span>
-      </label>
-      <label class="bg-fx-toggle-wrap crt-toggle-wrap">
-        <span class="bg-fx-label">CRT</span>
-        <input type="checkbox" class="crt-overlay-toggle" role="switch" aria-label="Toggle CRT scanline overlay" />
-        <span class="bg-fx-thumb-track crt-track" aria-hidden="true"><span class="bg-fx-thumb"></span></span>
-      </label>
-      <select class="bg-fx-select" aria-label="Background theme" hidden></select>
-    `;
-      this.toggleInput = this.controlsEl.querySelector(".bg-fx-toggle");
-      this.crtToggleInput = this.controlsEl.querySelector(".crt-overlay-toggle");
-      this.selectEl = this.controlsEl.querySelector(".bg-fx-select");
-      this.toggleInput.checked = this.fxEnabled;
-      this.crtToggleInput.checked = this.crtOverlayEnabled;
-      this.selectEl.hidden = !this.fxEnabled;
-      this._populateSelect();
-      this.toggleInput.addEventListener("change", () => {
-        this.fxEnabled = this.toggleInput.checked;
-        localStorage.setItem(STORAGE_ENABLED, String(this.fxEnabled));
-        this.selectEl.hidden = !this.fxEnabled;
-        this._applyTheme();
-      });
-      this.crtToggleInput.addEventListener("change", () => {
-        this.crtOverlayEnabled = this.crtToggleInput.checked;
-        localStorage.setItem(STORAGE_CRT, String(this.crtOverlayEnabled));
-        this._applyCrtStack();
-        this.applyAudioMetrics(this._metrics);
-      });
-      this.selectEl.addEventListener("change", () => {
-        this.themeId = this.selectEl.value;
-        localStorage.setItem(STORAGE_THEME, this.themeId);
-        this._applyTheme();
-      });
-    }
-    _populateSelect() {
-      this.selectEl.innerHTML = "";
-      const groups = ["css", "canvas", "scenes"];
-      for (const groupId of groups) {
-        const themes = FX_THEME_OPTIONS.filter((t4) => t4.group === groupId);
-        if (!themes.length) continue;
-        const optgroup = document.createElement("optgroup");
-        optgroup.label = THEME_GROUP_LABELS[groupId] ?? groupId;
-        for (const theme of themes) {
-          const opt = document.createElement("option");
-          opt.value = theme.id;
-          opt.textContent = theme.label;
-          if (theme.id === this.themeId) opt.selected = true;
-          optgroup.appendChild(opt);
-        }
-        this.selectEl.appendChild(optgroup);
-      }
-    }
-    _applyTheme() {
-      this._stopAllRenderers();
-      this._clearLayerClasses();
-      if (!this.fxEnabled) {
-        this.bgLayer.classList.add("bg-gamedude-default");
-        this.canvasEl.hidden = true;
-        this.setAudioReactive(this.audioReactive);
-        this._applyCrtStack();
+      this._applyEnabledState(false);
+      if (!supportsWebGL2()) {
+        this._setError("WebGL2 is required for Milkdrop visuals.");
         return;
       }
-      const theme = getThemeById(this.themeId);
-      if (theme.underlayClass) {
-        this.bgLayer.classList.add(theme.underlayClass);
+      this._resizeObserver = new ResizeObserver(() => this._resize());
+      this._resizeObserver.observe(this.hostEl);
+    }
+    get isEnabled() {
+      return this.enabled;
+    }
+    setAudioActive(active) {
+      this.audioActive = active;
+      if (this.enabled && this._ready) {
+        this._startLoop();
+      } else if (!this.enabled) {
+        this._stopLoop();
       }
-      if (theme.type === "css") {
-        this.bgLayer.classList.add(theme.className);
-        this.canvasEl.hidden = true;
-      } else if (theme.type === "canvas") {
-        this.canvasEl.hidden = false;
-        this._activeCanvas = this._canvasRenderers[theme.renderer];
-        this._activeCanvas?.start(this.canvasEl);
-        this._activeCanvas?.setMetrics(this._metrics);
-      } else if (theme.type === "scene") {
-        this.canvasEl.hidden = true;
-        this._activeScene = this._sceneRenderers[theme.renderer];
-        if (theme.renderer === "crtStandalone") {
-          this._activeScene.start(this.fxOverlayEl);
+    }
+    /** @param {import('./ProjectMAudioTap.js').ProjectMAudioTap} tap */
+    wireAudioTap(tap) {
+      tap.setPcmHandler((interleaved, samplesPerChannel) => {
+        if (!this._module || !this.enabled || !this.audioActive) return;
+        this._feedPcm(interleaved, samplesPerChannel);
+      });
+    }
+    async enable() {
+      if (this._error) return;
+      this.enabled = true;
+      localStorage.setItem(STORAGE_ENABLED, "true");
+      this.hostEl.classList.remove("is-disabled");
+      if (!this._module) {
+        await this._loadModule();
+      }
+      if (this._ready) {
+        this._startLoop();
+      }
+    }
+    disable() {
+      this.enabled = false;
+      localStorage.setItem(STORAGE_ENABLED, "false");
+      this.hostEl.classList.add("is-disabled");
+      this._stopLoop();
+    }
+    _buildControls() {
+      this.controlsEl.innerHTML = "";
+      this.controlsEl.className = "viz-controls";
+      const toggleWrap = document.createElement("label");
+      toggleWrap.className = "viz-controls-row";
+      toggleWrap.innerHTML = `
+      <span class="viz-label">Viz</span>
+      <input type="checkbox" class="viz-toggle" id="viz-enabled-toggle" />
+      <span class="viz-thumb-track"><span class="viz-thumb"></span></span>
+    `;
+      const toggle = toggleWrap.querySelector("#viz-enabled-toggle");
+      toggle.checked = this.enabled;
+      toggle.addEventListener("change", async () => {
+        if (toggle.checked) {
+          await this.enable();
         } else {
-          this._activeScene.start(this.sceneEl);
+          this.disable();
         }
-        this._activeScene?.setMetrics(this._metrics);
+      });
+      const presetRow = document.createElement("div");
+      presetRow.className = "viz-controls-row";
+      const prevBtn = document.createElement("button");
+      prevBtn.type = "button";
+      prevBtn.className = "viz-btn";
+      prevBtn.textContent = "\u25C0 Preset";
+      prevBtn.addEventListener("click", () => this._module?.ccall("pm_prev_preset", null, [], []));
+      const nextBtn = document.createElement("button");
+      nextBtn.type = "button";
+      nextBtn.className = "viz-btn";
+      nextBtn.textContent = "Preset \u25B6";
+      nextBtn.addEventListener("click", () => this._module?.ccall("pm_next_preset", null, [], []));
+      presetRow.append(prevBtn, nextBtn);
+      const opacityRow = document.createElement("label");
+      opacityRow.className = "viz-controls-row";
+      opacityRow.innerHTML = '<span class="viz-label">Dim</span>';
+      const opacityInput = document.createElement("input");
+      opacityInput.type = "range";
+      opacityInput.className = "viz-opacity";
+      opacityInput.min = "0.35";
+      opacityInput.max = "1";
+      opacityInput.step = "0.05";
+      opacityInput.value = String(this.opacity);
+      opacityInput.addEventListener("input", () => {
+        this.opacity = parseFloat(opacityInput.value);
+        localStorage.setItem(STORAGE_OPACITY, String(this.opacity));
+        document.documentElement.style.setProperty("--viz-opacity", String(this.opacity));
+      });
+      opacityRow.appendChild(opacityInput);
+      this._errorEl = document.createElement("p");
+      this._errorEl.className = "viz-error";
+      this._errorEl.hidden = true;
+      this.controlsEl.append(toggleWrap, presetRow, opacityRow, this._errorEl);
+      if (this.enabled) {
+        this.enable().catch((err) => this._setError(err.message));
       }
-      this._applyCrtStack();
-      this.setAudioReactive(this.audioReactive);
     }
-    _applyCrtStack() {
-      const theme = getThemeById(this.themeId);
-      if (this._stackCrtActive()) {
-        this._stackCrt.start(this.fxOverlayEl);
-        this._stackCrt.setMetrics(this._metrics);
-      } else if (theme.renderer !== "crtStandalone") {
-        this._stackCrt.stop();
+    _setError(message) {
+      this._error = message;
+      if (this._errorEl) {
+        this._errorEl.hidden = false;
+        this._errorEl.textContent = message;
+      }
+      if (this._statusEl) {
+        this._statusEl.textContent = message;
+      }
+      console.error("[projectM]", message);
+    }
+    _applyEnabledState() {
+      if (!this._statusEl && this.enabled && !this._ready) {
+        this._statusEl = document.createElement("div");
+        this._statusEl.className = "viz-status";
+        this._statusEl.textContent = "Loading Milkdrop visualizer\u2026";
+        this.hostEl.appendChild(this._statusEl);
       }
     }
-    _clearLayerClasses() {
-      for (const cls of ALL_THEME_CLASS_NAMES) {
-        this.bgLayer.classList.remove(cls);
+    _hostSize() {
+      const w2 = Math.max(1, Math.round(this.hostEl.clientWidth || window.innerWidth));
+      const h3 = Math.max(1, Math.round(this.hostEl.clientHeight || window.innerHeight));
+      return { w: w2, h: h3 };
+    }
+    async _loadModule() {
+      this._applyEnabledState();
+      if (this._statusEl) {
+        this._statusEl.textContent = "Loading Milkdrop visualizer\u2026";
       }
-      for (const cls of EXTRA_LAYER_CLASSES) {
-        this.bgLayer.classList.remove(cls);
+      const canvas = this._getOrCreateCanvas();
+      const { w: w2, h: h3 } = this._hostSize();
+      try {
+        const factory = await resolveProjectMFactory();
+        this._module = await factory({
+          canvas,
+          locateFile: (path) => new URL(path, this._wasmBase).href,
+          // Emscripten .data lookup uses page path unless scriptDirectory is set (GitHub Pages subpaths).
+          scriptDirectory: this._wasmBase,
+          mainScriptUrlOrBlob: this._scriptUrl,
+          print: (text) => console.log("[projectM]", text),
+          printErr: (text) => console.error("[projectM]", text)
+        });
+        const ok = this._module.ccall("pm_init", "number", ["number", "number"], [w2, h3]);
+        if (!ok) {
+          throw new Error("projectM failed to initialize (SDL/WebGL). Check the browser console.");
+        }
+        this._ready = true;
+        if (this._statusEl) {
+          this._statusEl.remove();
+          this._statusEl = null;
+        }
+        this._resize();
+        if (this.enabled) {
+          this._startLoop();
+        }
+      } catch (err) {
+        const msg = err?.message?.includes("fetch") || err?.message?.includes("wasm") ? `Could not load visualizer (${err.message}). Ensure public/vendor/projectm/ exists.` : err?.message || String(err);
+        this._setError(msg);
+        throw err;
       }
     }
-    _stopAllRenderers() {
-      for (const renderer of Object.values(this._canvasRenderers)) {
-        renderer.stop();
+    _getOrCreateCanvas() {
+      let canvas = this.hostEl.querySelector("canvas");
+      if (!canvas) {
+        canvas = document.createElement("canvas");
+        canvas.id = "projectm-canvas";
+        this.hostEl.prepend(canvas);
       }
-      for (const renderer of Object.values(this._sceneRenderers)) {
-        renderer.stop();
-      }
-      this._stackCrt.stop();
-      this.sceneEl.innerHTML = "";
-      this._activeCanvas = null;
-      this._activeScene = null;
+      return canvas;
     }
-  };
-
-  // src-player/audio/AudioAnalyser.js
-  var import_howler3 = __toESM(require_howler(), 1);
-  var IDLE_METRICS2 = { rms: 0, bass: 0, mid: 0, treble: 0 };
-  var AudioAnalyser = class {
-    constructor() {
-      this.onFrame = null;
-      this._analyser = null;
-      this._data = null;
-      this._raf = null;
-      this._wired = false;
+    _resize() {
+      if (!this._module || !this._ready) return;
+      const { w: w2, h: h3 } = this._hostSize();
+      this._module.ccall("pm_resize", null, ["number", "number"], [w2, h3]);
     }
-    attach(_howl) {
-      this._ensureGraph();
-    }
-    start() {
-      this._ensureGraph();
-      if (this._raf || !this._analyser) return;
+    _startLoop() {
+      if (this._raf || !this._module) return;
       const tick = () => {
-        if (!this._analyser || !this._data) return;
-        this._analyser.getByteFrequencyData(this._data);
-        this.onFrame?.(this._computeBands(this._data));
         this._raf = requestAnimationFrame(tick);
+        if (!this.enabled || !this._ready) return;
+        try {
+          this._module.ccall("pm_render_frame", null, [], []);
+        } catch (err) {
+          this._stopLoop();
+          this._setError(err?.message || "Render failed");
+        }
       };
       this._raf = requestAnimationFrame(tick);
     }
-    stop() {
+    _stopLoop() {
       if (this._raf) {
         cancelAnimationFrame(this._raf);
         this._raf = null;
       }
-      this.onFrame?.(IDLE_METRICS2);
+    }
+    _feedPcm(interleaved, samplesPerChannel) {
+      const mod = this._module;
+      const byteLen = interleaved.length * 4;
+      const ptr = mod._malloc(byteLen);
+      mod.HEAPF32.set(interleaved, ptr >> 2);
+      mod.ccall(
+        "pm_feed_pcm",
+        null,
+        ["number", "number", "number"],
+        [ptr, samplesPerChannel, 2]
+      );
+      mod._free(ptr);
+    }
+  };
+
+  // src-player/visualizer/ProjectMAudioTap.js
+  var import_howler3 = __toESM(require_howler(), 1);
+  var BUFFER_SIZE = 1024;
+  var ProjectMAudioTap = class {
+    constructor() {
+      this.onPcm = null;
+      this._processor = null;
+      this._wired = false;
+      this._stereoScratch = new Float32Array(BUFFER_SIZE * 2);
+    }
+    /** @param {(interleaved: Float32Array, samplesPerChannel: number) => void} handler */
+    setPcmHandler(handler) {
+      this.onPcm = handler;
+    }
+    start() {
+      this._ensureGraph();
+      if (!this._processor) return;
+      if (this._processor.context?.state === "suspended") {
+        this._processor.context.resume().catch(() => {
+        });
+      }
+    }
+    stop() {
     }
     _ensureGraph() {
       const ctx = import_howler3.Howler.ctx;
-      if (!ctx) return;
-      if (!this._analyser) {
-        this._analyser = ctx.createAnalyser();
-        this._analyser.fftSize = 256;
-        this._analyser.smoothingTimeConstant = 0.75;
-        this._data = new Uint8Array(this._analyser.frequencyBinCount);
+      if (!ctx || this._wired) return;
+      try {
+        this._processor = ctx.createScriptProcessor(BUFFER_SIZE, 2, 2);
+      } catch {
+        return;
       }
-      if (!this._wired && import_howler3.Howler.masterGain) {
-        try {
-          import_howler3.Howler.masterGain.disconnect();
-        } catch {
+      this._processor.onaudioprocess = (event) => {
+        if (!this.onPcm) return;
+        const inL = event.inputBuffer.getChannelData(0);
+        const inR = event.inputBuffer.numberOfChannels > 1 ? event.inputBuffer.getChannelData(1) : inL;
+        const outL = event.outputBuffer.getChannelData(0);
+        const outR = event.outputBuffer.numberOfChannels > 1 ? event.outputBuffer.getChannelData(1) : outL;
+        const len = inL.length;
+        const scratch = this._stereoScratch;
+        for (let i6 = 0; i6 < len; i6++) {
+          const l3 = inL[i6];
+          const r4 = inR[i6];
+          scratch[i6 * 2] = l3;
+          scratch[i6 * 2 + 1] = r4;
+          outL[i6] = l3;
+          outR[i6] = r4;
         }
-        import_howler3.Howler.masterGain.connect(this._analyser);
-        this._analyser.connect(ctx.destination);
-        this._wired = true;
-      }
-    }
-    _computeBands(data) {
-      const len = data.length;
-      if (!len) return IDLE_METRICS2;
-      let sum = 0;
-      for (let i6 = 0; i6 < len; i6++) sum += data[i6];
-      const rms = sum / (len * 255);
-      const sampleRate = import_howler3.Howler.ctx?.sampleRate ?? 44100;
-      const binHz = sampleRate / this._analyser.fftSize;
-      const bassEnd = Math.max(1, Math.min(len, Math.floor(150 / binHz)));
-      const midEnd = Math.max(bassEnd + 1, Math.min(len, Math.floor(2e3 / binHz)));
-      let bassSum = 0;
-      let midSum = 0;
-      let trebleSum = 0;
-      for (let i6 = 0; i6 < bassEnd; i6++) bassSum += data[i6];
-      for (let i6 = bassEnd; i6 < midEnd; i6++) midSum += data[i6];
-      for (let i6 = midEnd; i6 < len; i6++) trebleSum += data[i6];
-      return {
-        rms,
-        bass: bassSum / (bassEnd * 255),
-        mid: midSum / ((midEnd - bassEnd) * 255),
-        treble: trebleSum / ((len - midEnd) * 255)
+        this.onPcm(scratch.subarray(0, len * 2), len);
       };
+      const master = import_howler3.Howler.masterGain;
+      if (!master) return;
+      try {
+        master.disconnect();
+      } catch {
+      }
+      master.connect(this._processor);
+      this._processor.connect(ctx.destination);
+      this._wired = true;
     }
   };
 
@@ -5078,36 +4240,34 @@ Press any key to continue...
     const gb = document.querySelector("gameboy-console");
     return gb?.shadowRoot?.querySelector("game-dude-menu-screen")?.catalog ?? null;
   }
-  function initBackgroundFx() {
-    const bgLayer = document.getElementById("retro-bg-layer");
-    const sceneEl = document.getElementById("retro-bg-scene");
-    const canvasEl = document.getElementById("retro-bg-canvas");
-    const fxOverlayEl = document.getElementById("retro-bg-fx-overlay");
-    const controlsEl = document.getElementById("bg-fx-controls");
-    if (!bgLayer || !sceneEl || !canvasEl || !fxOverlayEl || !controlsEl) return;
-    const bgController = new BackgroundController(
-      bgLayer,
-      sceneEl,
-      canvasEl,
-      fxOverlayEl,
-      controlsEl
-    );
-    const analyser = new AudioAnalyser();
-    analyser.onFrame = (metrics) => bgController.applyAudioMetrics(metrics);
+  function initProjectMVisualizer() {
+    const hostEl = document.getElementById("projectm-host");
+    const controlsEl = document.getElementById("viz-controls");
+    if (!hostEl || !controlsEl) return;
+    const viz = new ProjectMController(hostEl, controlsEl);
+    const tap = new ProjectMAudioTap();
+    viz.wireAudioTap(tap);
     const attachCatalog = () => {
       const catalog = getMenuCatalog();
       if (!catalog) {
         requestAnimationFrame(attachCatalog);
         return;
       }
-      catalog.analyser = analyser;
+      catalog.audioTap = tap;
+      const prevOnPlayStateChange = catalog.onPlayStateChange;
       catalog.onPlayStateChange = (playing) => {
-        bgController.setAudioReactive(playing);
+        viz.setAudioActive(playing && viz.isEnabled);
+        if (playing && viz.isEnabled) {
+          tap.start();
+        } else {
+          tap.stop();
+        }
+        prevOnPlayStateChange?.(playing);
       };
     };
     attachCatalog();
   }
-  document.addEventListener("DOMContentLoaded", initBackgroundFx);
+  document.addEventListener("DOMContentLoaded", initProjectMVisualizer);
   document.addEventListener("keydown", (e6) => {
     const mapped = KEY_MAP[e6.key];
     if (!mapped) return;

@@ -1,7 +1,7 @@
 import './components/GameDudeMenuScreen.js';
 import '../vendor/gameboycss/components/GameboyConsole.js';
-import { BackgroundController } from './backgrounds/BackgroundController.js';
-import { AudioAnalyser } from './audio/AudioAnalyser.js';
+import { ProjectMController } from './visualizer/ProjectMController.js';
+import { ProjectMAudioTap } from './visualizer/ProjectMAudioTap.js';
 
 const KEY_MAP = {
   ArrowUp: { action: 'dpad', direction: 'up' },
@@ -24,23 +24,14 @@ function getMenuCatalog() {
   return gb?.shadowRoot?.querySelector('game-dude-menu-screen')?.catalog ?? null;
 }
 
-function initBackgroundFx() {
-  const bgLayer = document.getElementById('retro-bg-layer');
-  const sceneEl = document.getElementById('retro-bg-scene');
-  const canvasEl = document.getElementById('retro-bg-canvas');
-  const fxOverlayEl = document.getElementById('retro-bg-fx-overlay');
-  const controlsEl = document.getElementById('bg-fx-controls');
-  if (!bgLayer || !sceneEl || !canvasEl || !fxOverlayEl || !controlsEl) return;
+function initProjectMVisualizer() {
+  const hostEl = document.getElementById('projectm-host');
+  const controlsEl = document.getElementById('viz-controls');
+  if (!hostEl || !controlsEl) return;
 
-  const bgController = new BackgroundController(
-    bgLayer,
-    sceneEl,
-    canvasEl,
-    fxOverlayEl,
-    controlsEl,
-  );
-  const analyser = new AudioAnalyser();
-  analyser.onFrame = (metrics) => bgController.applyAudioMetrics(metrics);
+  const viz = new ProjectMController(hostEl, controlsEl);
+  const tap = new ProjectMAudioTap();
+  viz.wireAudioTap(tap);
 
   const attachCatalog = () => {
     const catalog = getMenuCatalog();
@@ -49,16 +40,23 @@ function initBackgroundFx() {
       return;
     }
 
-    catalog.analyser = analyser;
+    catalog.audioTap = tap;
+    const prevOnPlayStateChange = catalog.onPlayStateChange;
     catalog.onPlayStateChange = (playing) => {
-      bgController.setAudioReactive(playing);
+      viz.setAudioActive(playing && viz.isEnabled);
+      if (playing && viz.isEnabled) {
+        tap.start();
+      } else {
+        tap.stop();
+      }
+      prevOnPlayStateChange?.(playing);
     };
   };
 
   attachCatalog();
 }
 
-document.addEventListener('DOMContentLoaded', initBackgroundFx);
+document.addEventListener('DOMContentLoaded', initProjectMVisualizer);
 
 document.addEventListener('keydown', (e) => {
   const mapped = KEY_MAP[e.key];

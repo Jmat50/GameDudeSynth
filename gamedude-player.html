@@ -5,16 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GameDudeSynth — WAV Player</title>
   <link rel="stylesheet" href="./src-player/page.css" />
-  <link rel="stylesheet" href="./src-player/netstalgia/backgrounds.css" />
-  <link rel="stylesheet" href="./src-player/netstalgia/scenes.css" />
-  <link rel="stylesheet" href="./src-player/netstalgia/crt.css" />
+  <link rel="stylesheet" href="./src-player/visualizer/visualizer.css" />
 </head>
 <body>
-  <div id="retro-bg-layer" class="bg-gamedude-default" aria-hidden="true"></div>
-  <div id="retro-bg-scene" aria-hidden="true"></div>
-  <canvas id="retro-bg-canvas" hidden aria-hidden="true"></canvas>
-  <div id="retro-bg-fx-overlay" aria-hidden="true"></div>
-  <div id="bg-fx-controls"></div>
+  <div id="projectm-host" class="is-disabled" aria-hidden="true"></div>
+  <div id="viz-controls"></div>
 
   <header class="page-header">
     <h1>GameDudeSynth</h1>
@@ -34,11 +29,14 @@
     Console shell forked from
     <a href="https://github.com/ManzDev/gameboycss" target="_blank" rel="noopener">gameboycss</a>
     by ManzDev (ISC)
-    · Background patterns from
-    <a href="https://github.com/heza-ru/Netstalgia" target="_blank" rel="noopener">Netstalgia</a>
-    (MIT)
+    · Background visualizer
+    <a href="https://github.com/projectM-visualizer/projectm" target="_blank" rel="noopener">projectM</a>
+    (LGPL-2.1+) with
+    <a href="https://github.com/projectM-visualizer/presets-cream-of-the-crop" target="_blank" rel="noopener">community presets</a>
   </footer>
 
+  <!-- projectM must load before the player bundle (sets createProjectMModule + .data path). -->
+  <script src="./public/vendor/projectm/projectm.js"></script>
   <script src="./public/gameboy-ui.iife.js"></script>
 </body>
 </html>

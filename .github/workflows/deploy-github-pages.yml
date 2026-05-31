@@ -30,6 +30,9 @@ jobs:
       - name: Refresh demo manifest
         run: npm run demos:manifest
 
+      - name: Verify projectM WASM bundle is committed
+        run: npm run verify:projectm
+
       - name: Assemble GitHub Pages site
         run: npm run build:pages
 

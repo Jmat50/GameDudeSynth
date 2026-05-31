@@ -28,7 +28,7 @@ export class WavCatalog {
     this.onEnd = null;
     this.onProgress = null;
     this.onPlayStateChange = null;
-    this.analyser = null;
+    this.audioTap = null;
     this._progressTimer = null;
   }
 
@@ -86,8 +86,7 @@ export class WavCatalog {
       html5: false,
       volume: Howler.volume(),
       onplay: () => {
-        this.analyser?.attach(this.currentHowl);
-        this.analyser?.start();
+        this.audioTap?.start();
         this.onPlayStateChange?.(true);
       },
       onend: () => {
@@ -100,7 +99,7 @@ export class WavCatalog {
         this._handlePlaybackEnd();
       },
       onstop: () => {
-        this.analyser?.stop();
+        this.audioTap?.stop();
         this.onPlayStateChange?.(false);
       },
     });
@@ -129,7 +128,7 @@ export class WavCatalog {
   stop(fireEnd = true) {
     this._clearProgress();
     if (this.currentHowl) {
-      this.analyser?.stop();
+      this.audioTap?.stop();
       this.onPlayStateChange?.(false);
       this.currentHowl.stop();
       this.currentHowl.unload();
@@ -156,7 +155,7 @@ export class WavCatalog {
 
   _handlePlaybackEnd() {
     this._clearProgress();
-    this.analyser?.stop();
+    this.audioTap?.stop();
     this.onPlayStateChange?.(false);
     this.currentHowl = null;
     this.currentIndex = -1;

@@ -8,9 +8,11 @@ This repository is **GameDudeSynth**, a local Game Boy MIDI synthesis and WAV ex
 2. User opens `engine.html` over HTTP (not `file://`).
 3. User loads a local `.mid` file, optionally adjusts the **track assignment** table, renders offline, exports WAV.
 
-Optional: open `gamedude-player.html` to browse/play WAV files from `public/demos/` using the Game Boy menu UI.
+Optional: open `gamedude-player.html` to browse/play WAV files from `public/demos/` using the Game Boy menu UI. Toggle **Viz** for a full-screen [projectM](https://github.com/projectM-visualizer/projectm) Milkdrop-style background (WASM in `public/vendor/projectm/` — build with `scripts/build-projectm-wasm.ps1`).
 
 Live demo (GitHub Pages): [engine.html](https://jmat50.github.io/GameDudeSynth/engine.html) · [gamedude-player.html](https://jmat50.github.io/GameDudeSynth/gamedude-player.html)
+
+**GitHub Pages deploy** requires committed `public/vendor/projectm/{projectm.js,projectm.wasm,projectm.data}` (~6 MiB). CI runs `npm run verify:projectm` before `npm run build:pages`. Full local check: `npm run build:demo`.
 
 ## Core code (do not confuse with removed legacy)
 
@@ -23,6 +25,8 @@ Live demo (GitHub Pages): [engine.html](https://jmat50.github.io/GameDudeSynth/e
 | WAV player UI | `gamedude-player.html`, `src-player/`, `vendor/gameboycss/` |
 | Browser bundle | `public/gameboy-player.iife.js` (build with `npm run build:bundle`) |
 | Player bundle | `public/gameboy-ui.iife.js` (build with `npm run build:player-ui`) |
+| projectM WASM | `public/vendor/projectm/` (build with `scripts/build-projectm-wasm.ps1`; bridge in `vendor/projectm-bridge/`) |
+| Visualizer UI | `src-player/visualizer/` (`ProjectMController`, `ProjectMAudioTap`) |
 | Demo WAV folder | `public/demos/` — scanned by `GET /demos/manifest.json` in `server_gui.py` |
 | Local server | `server_gui.py` |
 
@@ -46,6 +50,8 @@ npm install
 npm run typecheck
 npm run build:bundle          # after any src-v2 change used by the export page
 npm run build:player-ui       # after src-player/ or vendor/gameboycss/ changes
+# After changing vendor/projectm-bridge or upgrading libprojectM:
+#   .\scripts\build-projectm-wasm.ps1   (Windows; requires Emscripten via emsdk)
 npm run build:all
 npm run demos:manifest        # refresh static manifest from public/demos/
 npm run test:track-analysis

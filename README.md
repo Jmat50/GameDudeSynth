@@ -26,7 +26,7 @@ npm install
 
 4. Click **Start Server** → **Open Export** (or **Open Player** for the WAV menu).
 5. Export: **`http://127.0.0.1:3000/engine.html`** — drop a `.mid` file, review track assignments, **Render WAV**, **Export WAV**.
-6. Player: **`http://127.0.0.1:3000/gamedude-player.html`** — drop `.wav` files in `public/demos/`, power on the console, use D-pad + A/START.
+6. Player: **`http://127.0.0.1:3000/gamedude-player.html`** — drop `.wav` files in `public/demos/`, power on the console, use D-pad + A/START. Optional **Viz** toggle runs a [projectM](https://github.com/projectM-visualizer/projectm) Milkdrop-style background (requires WASM artifacts in `public/vendor/projectm/`).
 
 Hard-refresh the browser (`Ctrl+Shift+R`) after rebuilding bundles.
 
@@ -37,6 +37,7 @@ Hard-refresh the browser (`Ctrl+Shift+R`) after rebuilding bundles.
 - Track list: `GET /demos/manifest.json` when using `server_gui.py` (auto-scans the folder)
 - Static fallback: `npm run demos:manifest` writes `public/demos/manifest.json`
 - Console shell vendored from [gameboycss](https://github.com/ManzDev/gameboycss) by ManzDev (ISC)
+- Background visualizer: [projectM](https://github.com/projectM-visualizer/projectm) (LGPL-2.1+) — build once with `.\scripts\build-projectm-wasm.ps1` (see `public/vendor/projectm/README.md`)
 
 ## Project layout
 
@@ -48,7 +49,9 @@ Hard-refresh the browser (`Ctrl+Shift+R`) after rebuilding bundles.
 | `public/gameboy-ui.iife.js` | WAV player UI bundle (Lit + Howler) |
 | `vendor/gameboycss/` | Vendored gameboycss console shell (ISC, ManzDev) |
 | `src-v2/` | Synthesis engine source (APU, MIDI mapping, offline render) |
-| `src-player/` | WAV player menu screen + catalog |
+| `src-player/` | WAV player menu screen + catalog + projectM visualizer |
+| `public/vendor/projectm/` | Vendored projectM WASM (`projectm.js`, `.wasm`, `.data`) |
+| `vendor/projectm-bridge/` | Emscripten bridge source (PCM feed from Web Audio) |
 | `public/demos/` | Drop folder for player WAV tracks |
 | `server_gui.py` | Local static HTTP server + `/demos/manifest.json` |
 | `scripts/process-local-midi-v2.ts` | CLI: MIDI → WAV (headless, no browser) |
@@ -59,6 +62,7 @@ Hard-refresh the browser (`Ctrl+Shift+R`) after rebuilding bundles.
 npm run typecheck          # TypeScript check (src-v2 + scripts)
 npm run build:bundle       # Rebuild public/gameboy-player.iife.js from src-v2
 npm run build:player-ui    # Rebuild public/gameboy-ui.iife.js (WAV player page)
+# .\scripts\build-projectm-wasm.ps1   # One-time: Emscripten + libprojectM → public/vendor/projectm/
 npm run build:all          # Both bundles
 npm run demos:manifest     # Regenerate public/demos/manifest.json from folder scan
 npm run build:pages          # Assemble dist/github-pages for GitHub Pages deploy
@@ -76,7 +80,17 @@ Produces `dist/GameDudeSynthServer.exe` and copies it to the project root. Run t
 
 ## Live demo (GitHub Pages)
 
-The export UI and WAV player are published under **`/GameDudeSynth/`** on [jmat50.github.io](https://jmat50.github.io):
+The export UI and WAV player are published under **`/GameDudeSynth/`** on [jmat50.github.io](https://jmat50.github.io).
+
+**Before deploying**, commit the projectM WASM bundle and run:
+
+```bash
+npm run build:demo   # bundles + demos manifest + dist/github-pages verify
+```
+
+The live player needs `public/vendor/projectm/projectm.{js,wasm,data}` in the repo (built via `.\scripts\build-projectm-wasm.ps1` on Windows).
+
+Published URLs:
 
 - **MIDI export:** https://jmat50.github.io/GameDudeSynth/engine.html
 - **WAV player:** https://jmat50.github.io/GameDudeSynth/gamedude-player.html
