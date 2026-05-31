@@ -5,6 +5,7 @@ import './GameboyControlsGame.js';
 import { LitElement, html, css } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { Howler } from 'howler';
+import { isWavFile } from '../../../src-player/audio/WavCatalog.js';
 
 export class GameboyConsole extends LitElement {
   static properties = {
@@ -24,11 +25,73 @@ export class GameboyConsole extends LitElement {
       this._forwardInput(detail);
     };
 
+    this._onDragEnter = (event) => {
+      if (!this._hasWavFile(event.dataTransfer)) return;
+      event.preventDefault();
+      this.setAttribute('drag-over', '');
+    };
+
+    this._onDragOver = (event) => {
+      if (!this._hasWavFile(event.dataTransfer)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+      this.setAttribute('drag-over', '');
+    };
+
+    this._onDragLeave = (event) => {
+      if (event.currentTarget.contains(event.relatedTarget)) return;
+      this.removeAttribute('drag-over');
+    };
+
+    this._onDrop = (event) => {
+      event.preventDefault();
+      this.removeAttribute('drag-over');
+      const file = this._extractWavFile(event.dataTransfer);
+      if (!file) return;
+      this._playDroppedFile(file);
+    };
+
     this.addEventListener('GAMEBOY_DPAD', this._onControl);
     this.addEventListener('GAMEBOY_A_PRESSED', this._onControl);
     this.addEventListener('GAMEBOY_B_PRESSED', this._onControl);
     this.addEventListener('GAMEBOY_START_PRESSED', this._onControl);
     this.addEventListener('GAMEBOY_SELECT_PRESSED', this._onControl);
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.addEventListener('dragenter', this._onDragEnter);
+    this.addEventListener('dragover', this._onDragOver);
+    this.addEventListener('dragleave', this._onDragLeave);
+    this.addEventListener('drop', this._onDrop);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.removeEventListener('dragenter', this._onDragEnter);
+    this.removeEventListener('dragover', this._onDragOver);
+    this.removeEventListener('dragleave', this._onDragLeave);
+    this.removeEventListener('drop', this._onDrop);
+  }
+
+  _hasWavFile(dataTransfer) {
+    if (!dataTransfer) return false;
+    if (dataTransfer.files?.length) {
+      return [...dataTransfer.files].some(isWavFile);
+    }
+    return [...(dataTransfer.items ?? [])].some((item) => item.kind === 'file');
+  }
+
+  _extractWavFile(dataTransfer) {
+    return [...(dataTransfer?.files ?? [])].find(isWavFile) ?? null;
+  }
+
+  _playDroppedFile(file) {
+    if (!this.isOn) {
+      this.isOn = true;
+      this._getScreen()?.powerOn();
+    }
+    this._getScreen()?.handleDroppedFile(file);
   }
 
   setVolumeLevel(level) {
@@ -82,6 +145,14 @@ export class GameboyConsole extends LitElement {
       flex-direction: column;
       justify-content: space-between;
       position: relative;
+      transition: box-shadow 0.15s ease;
+    }
+    :host([drag-over]) .gameboy {
+      box-shadow:
+        0 0 18px rgba(138, 172, 15, 0.85),
+        0 0 25px rgba(0, 0, 0, 0.25) inset,
+        -2px -2px 10px rgba(0, 0, 0, 0.8) inset,
+        0 0 15px rgba(0, 0, 0, 0.75) inset;
     }
     .power {
       width: 30px;
@@ -299,8 +370,8 @@ export class GameboyConsole extends LitElement {
           </div>
         </div>
         <div class="brand">
-          <div class="company">Nintendo</div>
-          <div class="type">GAME BOY<sup>™</sup></div>
+          <div class="company">NintenDOH!</div>
+          <div class="type">GameDude<sup>™</sup></div>
         </div>
         <div class="controls">
           <gameboy-controls-cross></gameboy-controls-cross>

@@ -2811,7 +2811,6 @@
       this.onEnd = null;
       this.onProgress = null;
       this._progressTimer = null;
-      this._startedAt = 0;
     }
     get tracks() {
       return [...this.localTracks, ...this.manifestTracks];
@@ -2874,13 +2873,22 @@
         }
       });
       this.currentHowl.play();
-      this._startedAt = performance.now();
       this._progressTimer = setInterval(() => {
         if (!this.currentHowl?.playing()) return;
-        const elapsed = (performance.now() - this._startedAt) / 1e3;
+        const elapsed = this.currentHowl.seek() || 0;
         const duration = this.currentHowl.duration() || 0;
         this.onProgress?.(elapsed, duration);
       }, 250);
+      return true;
+    }
+    seekBy(deltaSeconds) {
+      if (!this.currentHowl?.playing()) return false;
+      const duration = this.currentHowl.duration() || 0;
+      if (duration <= 0) return false;
+      const current = this.currentHowl.seek() || 0;
+      const next = Math.max(0, Math.min(duration, current + deltaSeconds));
+      this.currentHowl.seek(next);
+      this.onProgress?.(next, duration);
       return true;
     }
     stop(fireEnd = true) {
@@ -3010,6 +3018,14 @@
       if (!this.start || this.loading) return;
       const action = detail.action ?? detail;
       if (action === "dpad") {
+        if (this.scene === "playing") {
+          if (detail.direction === "right") {
+            this.catalog.seekBy(15);
+          } else if (detail.direction === "left") {
+            this.catalog.seekBy(-15);
+          }
+          return;
+        }
         if (this.scene === "menu" && this.tracks.length > 0) {
           if (detail.direction === "up") {
             this.cursor = (this.cursor - 1 + this.tracks.length) % this.tracks.length;
@@ -3205,7 +3221,7 @@
             <div class="now ${this.showBlink ? "" : "blink-hidden"}">♪ PLAYING</div>
             <div class="time">${this._formatTime(this.elapsed)} / ${this._formatTime(this.duration)}</div>
             <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
-            <div class="hint">B = STOP</div>
+            <div class="hint">B = STOP · ← -15s · → +15s</div>
           </div>
         </div>
       `;
@@ -3843,8 +3859,8 @@
           </div>
         </div>
         <div class="brand">
-          <div class="company">Nintendo</div>
-          <div class="type">GAME BOY<sup>™</sup></div>
+          <div class="company">NintenDOH!</div>
+          <div class="type">GameDude<sup>™</sup></div>
         </div>
         <div class="controls">
           <gameboy-controls-cross></gameboy-controls-cross>

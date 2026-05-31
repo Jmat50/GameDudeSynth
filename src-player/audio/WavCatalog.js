@@ -28,7 +28,6 @@ export class WavCatalog {
     this.onEnd = null;
     this.onProgress = null;
     this._progressTimer = null;
-    this._startedAt = 0;
   }
 
   get tracks() {
@@ -100,13 +99,23 @@ export class WavCatalog {
     });
 
     this.currentHowl.play();
-    this._startedAt = performance.now();
     this._progressTimer = setInterval(() => {
       if (!this.currentHowl?.playing()) return;
-      const elapsed = (performance.now() - this._startedAt) / 1000;
+      const elapsed = this.currentHowl.seek() || 0;
       const duration = this.currentHowl.duration() || 0;
       this.onProgress?.(elapsed, duration);
     }, 250);
+    return true;
+  }
+
+  seekBy(deltaSeconds) {
+    if (!this.currentHowl?.playing()) return false;
+    const duration = this.currentHowl.duration() || 0;
+    if (duration <= 0) return false;
+    const current = this.currentHowl.seek() || 0;
+    const next = Math.max(0, Math.min(duration, current + deltaSeconds));
+    this.currentHowl.seek(next);
+    this.onProgress?.(next, duration);
     return true;
   }
 
