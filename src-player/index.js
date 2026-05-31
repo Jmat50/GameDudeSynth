@@ -26,11 +26,19 @@ function getMenuCatalog() {
 
 function initBackgroundFx() {
   const bgLayer = document.getElementById('retro-bg-layer');
+  const sceneEl = document.getElementById('retro-bg-scene');
   const canvasEl = document.getElementById('retro-bg-canvas');
+  const fxOverlayEl = document.getElementById('retro-bg-fx-overlay');
   const controlsEl = document.getElementById('bg-fx-controls');
-  if (!bgLayer || !canvasEl || !controlsEl) return;
+  if (!bgLayer || !sceneEl || !canvasEl || !fxOverlayEl || !controlsEl) return;
 
-  const bgController = new BackgroundController(bgLayer, canvasEl, controlsEl);
+  const bgController = new BackgroundController(
+    bgLayer,
+    sceneEl,
+    canvasEl,
+    fxOverlayEl,
+    controlsEl,
+  );
   const analyser = new AudioAnalyser();
   analyser.onFrame = (metrics) => bgController.applyAudioMetrics(metrics);
 

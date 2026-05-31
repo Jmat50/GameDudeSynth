@@ -1,3 +1,5 @@
+export const ASSET_BASE = './public/vendor/netstalgia';
+
 export const BACKGROUND_THEMES = [
   {
     id: 'gamedude',
@@ -84,6 +86,13 @@ export const BACKGROUND_THEMES = [
     group: 'css',
   },
   {
+    id: 'win95-desktop',
+    label: 'Win95 Desktop Teal',
+    type: 'css',
+    className: 'bg-win95-teal',
+    group: 'css',
+  },
+  {
     id: 'starfield',
     label: 'Starfield Warp',
     type: 'canvas',
@@ -99,7 +108,52 @@ export const BACKGROUND_THEMES = [
     underlayClass: 'bg-canvas-underlay-matrix',
     group: 'canvas',
   },
+  {
+    id: 'toasters',
+    label: 'Flying Toasters',
+    type: 'canvas',
+    renderer: 'toasters',
+    underlayClass: 'bg-canvas-underlay',
+    group: 'canvas',
+  },
+  {
+    id: 'dialup',
+    label: 'Dial-Up Modem',
+    type: 'scene',
+    renderer: 'dialup',
+    underlayClass: 'bg-scene-underlay',
+    group: 'scenes',
+  },
+  {
+    id: 'bsod',
+    label: 'Blue Screen of Death',
+    type: 'scene',
+    renderer: 'bsod',
+    underlayClass: 'bg-scene-underlay',
+    group: 'scenes',
+  },
+  {
+    id: 'under-construction',
+    label: 'Under Construction',
+    type: 'scene',
+    renderer: 'underConstruction',
+    group: 'scenes',
+  },
+  {
+    id: 'crt',
+    label: 'CRT Scanlines',
+    type: 'scene',
+    renderer: 'crtStandalone',
+    underlayClass: 'bg-crt-underlay',
+    group: 'scenes',
+  },
 ];
+
+export const THEME_GROUP_LABELS = {
+  css: 'CSS Patterns',
+  canvas: 'Canvas FX',
+  scenes: 'Netstalgia Scenes',
+};
 
 export const ALL_THEME_CLASS_NAMES = BACKGROUND_THEMES.filter((t) => t.className).map(
   (t) => t.className,

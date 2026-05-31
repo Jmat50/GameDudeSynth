@@ -3909,6 +3909,7 @@
   customElements.define("gameboy-console", GameboyConsole);
 
   // src-player/backgrounds/netstalgiaThemes.js
+  var ASSET_BASE = "./public/vendor/netstalgia";
   var BACKGROUND_THEMES = [
     {
       id: "gamedude",
@@ -3995,6 +3996,13 @@
       group: "css"
     },
     {
+      id: "win95-desktop",
+      label: "Win95 Desktop Teal",
+      type: "css",
+      className: "bg-win95-teal",
+      group: "css"
+    },
+    {
       id: "starfield",
       label: "Starfield Warp",
       type: "canvas",
@@ -4009,8 +4017,52 @@
       renderer: "matrix",
       underlayClass: "bg-canvas-underlay-matrix",
       group: "canvas"
+    },
+    {
+      id: "toasters",
+      label: "Flying Toasters",
+      type: "canvas",
+      renderer: "toasters",
+      underlayClass: "bg-canvas-underlay",
+      group: "canvas"
+    },
+    {
+      id: "dialup",
+      label: "Dial-Up Modem",
+      type: "scene",
+      renderer: "dialup",
+      underlayClass: "bg-scene-underlay",
+      group: "scenes"
+    },
+    {
+      id: "bsod",
+      label: "Blue Screen of Death",
+      type: "scene",
+      renderer: "bsod",
+      underlayClass: "bg-scene-underlay",
+      group: "scenes"
+    },
+    {
+      id: "under-construction",
+      label: "Under Construction",
+      type: "scene",
+      renderer: "underConstruction",
+      group: "scenes"
+    },
+    {
+      id: "crt",
+      label: "CRT Scanlines",
+      type: "scene",
+      renderer: "crtStandalone",
+      underlayClass: "bg-crt-underlay",
+      group: "scenes"
     }
   ];
+  var THEME_GROUP_LABELS = {
+    css: "CSS Patterns",
+    canvas: "Canvas FX",
+    scenes: "Netstalgia Scenes"
+  };
   var ALL_THEME_CLASS_NAMES = BACKGROUND_THEMES.filter((t4) => t4.className).map(
     (t4) => t4.className
   );
@@ -4262,24 +4314,512 @@
     }
   };
 
+  // src-player/backgrounds/canvas/FlyingToastersRenderer.js
+  var FlyingToastersRenderer = class {
+    constructor() {
+      this._canvas = null;
+      this._ctx = null;
+      this._toasters = [];
+      this._stars = [];
+      this._raf = null;
+      this._metrics = { rms: 0, bass: 0, mid: 0, treble: 0 };
+      this._onResize = () => this._resize();
+    }
+    start(canvas) {
+      this.stop();
+      this._canvas = canvas;
+      this._ctx = canvas.getContext("2d");
+      this._resize();
+      window.addEventListener("resize", this._onResize);
+      this._initToasters();
+      this._initStars();
+      this._loop();
+    }
+    stop() {
+      window.removeEventListener("resize", this._onResize);
+      if (this._raf) {
+        cancelAnimationFrame(this._raf);
+        this._raf = null;
+      }
+      if (this._ctx && this._canvas) {
+        this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+      }
+      this._toasters = [];
+      this._stars = [];
+    }
+    setMetrics(metrics) {
+      this._metrics = metrics ?? { rms: 0, bass: 0, mid: 0, treble: 0 };
+      const target = Math.min(16, 6 + Math.floor(this._metrics.treble * 10 + this._metrics.rms * 4));
+      while (this._toasters.length < target && this._canvas) {
+        this._toasters.push(this._spawnToaster());
+      }
+      while (this._toasters.length > target) {
+        this._toasters.pop();
+      }
+    }
+    _resize() {
+      if (!this._canvas) return;
+      this._canvas.width = window.innerWidth;
+      this._canvas.height = window.innerHeight;
+      if (this._toasters.length === 0) this._initToasters();
+      if (this._stars.length === 0) this._initStars();
+    }
+    _spawnToaster() {
+      const w2 = this._canvas?.width ?? 800;
+      const h3 = this._canvas?.height ?? 600;
+      return {
+        x: Math.random() * w2,
+        y: Math.random() * h3,
+        speed: Math.random() * 2 + 1,
+        direction: Math.random() * Math.PI * 2,
+        size: Math.random() * 20 + 20
+      };
+    }
+    _initToasters() {
+      const count = 8;
+      this._toasters = Array.from({ length: count }, () => this._spawnToaster());
+    }
+    _initStars() {
+      const w2 = this._canvas?.width ?? 800;
+      const h3 = this._canvas?.height ?? 600;
+      this._stars = Array.from({ length: 50 }, () => ({
+        x: Math.random() * w2,
+        y: Math.random() * h3,
+        phase: Math.random() * Math.PI * 2
+      }));
+    }
+    _loop() {
+      const canvas = this._canvas;
+      const ctx = this._ctx;
+      if (!canvas || !ctx) return;
+      ctx.fillStyle = "#000014";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const t4 = Date.now() / 1e3;
+      for (const star of this._stars) {
+        const alpha = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t4 * 2 + star.phase));
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.fillRect(star.x, star.y, 2, 2);
+      }
+      const speedMul = 1 + this._metrics.treble * 1.5 + this._metrics.rms * 0.5;
+      ctx.font = "24px serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (const toaster of this._toasters) {
+        let nx = toaster.x + Math.cos(toaster.direction) * toaster.speed * speedMul;
+        let ny = toaster.y + Math.sin(toaster.direction) * toaster.speed * speedMul;
+        if (nx < 0 || nx > canvas.width - toaster.size) {
+          toaster.direction = Math.PI - toaster.direction;
+          nx = Math.max(0, Math.min(canvas.width - toaster.size, nx));
+        }
+        if (ny < 0 || ny > canvas.height - toaster.size) {
+          toaster.direction = -toaster.direction;
+          ny = Math.max(0, Math.min(canvas.height - toaster.size, ny));
+        }
+        toaster.x = nx;
+        toaster.y = ny;
+        ctx.fillText("\u{1F35E}", nx + toaster.size / 2, ny + toaster.size / 2);
+      }
+      this._raf = requestAnimationFrame(() => this._loop());
+    }
+  };
+
+  // src-player/backgrounds/scenes/DialUpScene.js
+  var DIAL_UP_MESSAGES = [
+    "Initializing modem...",
+    "Dialing Internet Service Provider...",
+    "Handshaking with modem...",
+    "Negotiating connection speed...",
+    "Establishing PPP connection...",
+    "Verifying username and password...",
+    "Registering on network...",
+    "Connection established successfully!"
+  ];
+  var CONNECTION_SPEEDS = [
+    { speed: "14.4 Kbps", multiplier: 2.5 },
+    { speed: "28.8 Kbps", multiplier: 2 },
+    { speed: "33.6 Kbps", multiplier: 1.5 },
+    { speed: "56K V.90", multiplier: 1 },
+    { speed: "56K V.92", multiplier: 0.8 }
+  ];
+  function pickSpeed() {
+    return CONNECTION_SPEEDS[Math.floor(Math.random() * CONNECTION_SPEEDS.length)];
+  }
+  var DialUpScene = class {
+    constructor() {
+      this._container = null;
+      this._progress = 0;
+      this._step = 0;
+      this._dialAttempt = 1;
+      this._speed = pickSpeed();
+      this._metrics = { rms: 0, bass: 0, mid: 0, treble: 0 };
+      this._timer = null;
+      this._blocks = [];
+      this._progressEl = null;
+      this._statusEl = null;
+      this._attemptEl = null;
+      this._speedEl = null;
+    }
+    start(container) {
+      this.stop();
+      this._container = container;
+      this._speed = pickSpeed();
+      this._progress = 0;
+      this._step = 0;
+      this._dialAttempt = 1;
+      container.innerHTML = `
+      <div class="loading-screen-container">
+        <div class="loading-window">
+          <div class="loading-titlebar">
+            <span>Dialing Progress</span>
+            <span>_ \u25A1 \xD7</span>
+          </div>
+          <div class="loading-content">
+            <img class="loading-gif" src="${ASSET_BASE}/dialup.gif" alt="" width="280" height="120" />
+            <div class="loading-progress-track"></div>
+            <div class="loading-status"></div>
+            <div class="loading-meta">
+              <div class="loading-speed"></div>
+              <div class="loading-attempt"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+      const track = container.querySelector(".loading-progress-track");
+      this._blocks = Array.from({ length: 20 }, () => {
+        const block = document.createElement("div");
+        block.className = "loading-progress-block";
+        track.appendChild(block);
+        return block;
+      });
+      this._progressEl = container.querySelector(".loading-status");
+      this._attemptEl = container.querySelector(".loading-attempt");
+      this._speedEl = container.querySelector(".loading-speed");
+      this._speedEl.textContent = `Speed: ${this._speed.speed}`;
+      this._updateUi();
+      this._timer = setInterval(() => this._tick(), 50);
+    }
+    stop() {
+      if (this._timer) {
+        clearInterval(this._timer);
+        this._timer = null;
+      }
+      if (this._container) {
+        this._container.innerHTML = "";
+        this._container = null;
+      }
+    }
+    setMetrics(metrics) {
+      this._metrics = metrics ?? { rms: 0, bass: 0, mid: 0, treble: 0 };
+    }
+    _tick() {
+      const rate = 0.8 * this._speed.multiplier * (1 + this._metrics.bass * 1.5 + this._metrics.rms * 0.5);
+      this._progress = Math.min(100, this._progress + rate);
+      if (this._progress >= 100) {
+        this._progress = 0;
+        this._step = (this._step + 1) % DIAL_UP_MESSAGES.length;
+        if (this._step === 0) {
+          this._dialAttempt += 1;
+          this._speed = pickSpeed();
+        }
+      }
+      this._updateUi();
+    }
+    _updateUi() {
+      if (!this._progressEl) return;
+      this._progressEl.textContent = DIAL_UP_MESSAGES[this._step];
+      if (this._attemptEl) {
+        this._attemptEl.textContent = `Dialing Attempt ${this._dialAttempt} OF ${this._speed.multiplier > 2 ? 7 : 5}`;
+      }
+      if (this._speedEl) {
+        this._speedEl.textContent = `Speed: ${this._speed.speed}`;
+      }
+      for (let i6 = 0; i6 < this._blocks.length; i6++) {
+        const blockProgress = (i6 + 1) * 5;
+        const block = this._blocks[i6];
+        block.classList.remove("active", "partial");
+        if (this._progress >= blockProgress) {
+          block.classList.add("active");
+        } else if (this._progress > i6 * 5) {
+          block.classList.add("partial");
+        }
+      }
+    }
+  };
+
+  // src-player/backgrounds/scenes/BsodScene.js
+  var AUTHENTIC_ERRORS = [
+    {
+      code: "0E",
+      address: "0028:C001E36",
+      module: "VXD VMM(01)",
+      offset: "00010E36",
+      description: "FATAL EXCEPTION: General Protection Fault"
+    },
+    {
+      code: "0D",
+      address: "0028:C0025F42",
+      module: "VXD VWIN32(01)",
+      offset: "00005F42",
+      description: "FATAL EXCEPTION: Stack Fault"
+    },
+    {
+      code: "06",
+      address: "0028:C002A1B8",
+      module: "VXD SHELL(01)",
+      offset: "0000A1B8",
+      description: "FATAL EXCEPTION: Invalid Opcode"
+    },
+    {
+      code: "0C",
+      address: "0028:C0031D74",
+      module: "VXD KERNEL32(01)",
+      offset: "00001D74",
+      description: "FATAL EXCEPTION: Stack Overflow"
+    }
+  ];
+  var CRASH_REASONS = [
+    "User clicked suspicious popup advertisement",
+    "Attempted to download 'FREE_SCREENSAVER.EXE'",
+    "Opened email attachment 'ILOVEYOU.VBS'",
+    "Installed Bonzi Buddy without reading EULA",
+    "Clicked 'You are visitor #1,000,000!'"
+  ];
+  var SYSTEM_SPECS = [
+    "Intel Pentium 133 MHz",
+    "16 MB RAM (8 MB available)",
+    "1.2 GB Hard Drive (98% full)",
+    "Creative Sound Blaster 16",
+    "Diamond Stealth 64 Video (2MB)",
+    "US Robotics 56K Sportster Modem"
+  ];
+  var _beepPlayed = false;
+  function playCrashSound() {
+    if (_beepPlayed) return;
+    _beepPlayed = true;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+      osc1.frequency.value = 200;
+      osc2.frequency.value = 150;
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc1.start(ctx.currentTime);
+      osc2.start(ctx.currentTime);
+      osc1.stop(ctx.currentTime + 0.5);
+      osc2.stop(ctx.currentTime + 0.5);
+    } catch {
+    }
+  }
+  function pickRandom(list) {
+    return list[Math.floor(Math.random() * list.length)];
+  }
+  var BsodScene = class {
+    constructor() {
+      this._container = null;
+      this._cursorEl = null;
+      this._screenEl = null;
+      this._cursorTimer = null;
+      this._metrics = { rms: 0, bass: 0, mid: 0, treble: 0 };
+      this._showCursor = true;
+    }
+    start(container) {
+      this.stop();
+      playCrashSound();
+      this._container = container;
+      const err = pickRandom(AUTHENTIC_ERRORS);
+      const reason = pickRandom(CRASH_REASONS);
+      const now = /* @__PURE__ */ new Date();
+      const body = `Microsoft Windows
+Copyright (C) Microsoft Corp 1981-1998.
+
+A fatal exception ${err.code} has occurred at ${err.address} in VXD ${err.module} +
+${err.offset}. The current application will be terminated.
+
+${err.description}
+
+* Press any key to terminate the current application.
+* Press CTRL+ALT+DEL again to restart your computer. You will
+  lose any unsaved information in all open applications.
+
+System Information:
+Computer: ${SYSTEM_SPECS[0]}
+Memory: ${SYSTEM_SPECS[1]}
+Storage: ${SYSTEM_SPECS[2]}
+Sound: ${SYSTEM_SPECS[3]}
+Video: ${SYSTEM_SPECS[4]}
+Modem: ${SYSTEM_SPECS[5]}
+
+Error Details:
+Cause: ${reason}
+Date: ${now.toLocaleDateString("en-US")}
+Time: ${now.toLocaleTimeString("en-US", { hour12: false })}
+
+Press any key to continue...
+`;
+      container.innerHTML = `
+      <div class="crash-screen">
+        <pre class="crash-text"></pre>
+        <span class="crash-cursor">\u2588</span>
+      </div>
+    `;
+      this._screenEl = container.querySelector(".crash-screen");
+      container.querySelector(".crash-text").textContent = body;
+      this._cursorEl = container.querySelector(".crash-cursor");
+      const blinkMs = () => 530 / (1 + this._metrics.rms * 0.4);
+      const blink = () => {
+        this._showCursor = !this._showCursor;
+        if (this._cursorEl) {
+          this._cursorEl.style.opacity = this._showCursor ? "1" : "0";
+        }
+        if (this._container) {
+          this._cursorTimer = setTimeout(blink, blinkMs());
+        }
+      };
+      blink();
+    }
+    stop() {
+      if (this._cursorTimer) {
+        clearTimeout(this._cursorTimer);
+        this._cursorTimer = null;
+      }
+      if (this._container) {
+        this._container.innerHTML = "";
+        this._container = null;
+      }
+    }
+    setMetrics(metrics) {
+      this._metrics = metrics ?? { rms: 0, bass: 0, mid: 0, treble: 0 };
+      if (this._screenEl) {
+        const jitter = this._metrics.bass * 3;
+        this._screenEl.style.transform = jitter > 0.05 ? `translateX(${jitter}px)` : "";
+      }
+    }
+  };
+
+  // src-player/backgrounds/scenes/UnderConstructionScene.js
+  var UnderConstructionScene = class {
+    constructor() {
+      this._container = null;
+      this._root = null;
+      this._metrics = { rms: 0, bass: 0, mid: 0, treble: 0 };
+    }
+    start(container) {
+      this.stop();
+      this._container = container;
+      container.innerHTML = `
+      <div class="under-construction-scene">
+        <div class="uc-banner top blink">Under Construction</div>
+        <div class="uc-banner mid blink">Coming Soon!</div>
+        <div class="uc-banner bottom blink">Best Viewed in Netscape</div>
+        <div class="uc-gif-tile a" aria-hidden="true"></div>
+        <div class="uc-gif-tile b" aria-hidden="true"></div>
+        <div class="uc-gif-tile c" aria-hidden="true"></div>
+      </div>
+    `;
+      this._root = container.querySelector(".under-construction-scene");
+    }
+    stop() {
+      if (this._container) {
+        this._container.innerHTML = "";
+        this._container = null;
+      }
+      this._root = null;
+    }
+    setMetrics(metrics) {
+      this._metrics = metrics ?? { rms: 0, bass: 0, mid: 0, treble: 0 };
+      if (!this._root) return;
+      this._root.style.setProperty("--audio-mid", String(this._metrics.mid));
+      this._root.style.setProperty("--audio-treble", String(this._metrics.treble));
+      this._root.dataset.audioReactive = "true";
+      const opacity = 0.7 + this._metrics.mid * 0.3;
+      for (const banner of this._root.querySelectorAll(".uc-banner")) {
+        banner.style.opacity = String(opacity);
+      }
+    }
+  };
+
+  // src-player/backgrounds/overlays/CrtOverlay.js
+  var CrtOverlay = class {
+    constructor({ standalone = false } = {}) {
+      this.standalone = standalone;
+      this._container = null;
+      this._active = false;
+      this._metrics = { rms: 0, bass: 0, mid: 0, treble: 0 };
+    }
+    start(container) {
+      this.stop();
+      this._container = container;
+      this._active = true;
+      if (this.standalone) {
+        container.classList.add("crt-standalone");
+      }
+      container.innerHTML = `
+      <div class="crt-flicker-enhanced" aria-hidden="true"></div>
+      <div class="crt-scanlines-enhanced" aria-hidden="true"></div>
+    `;
+      container.dataset.audioReactive = "true";
+      this.setMetrics(this._metrics);
+    }
+    stop() {
+      if (this._container) {
+        this._container.innerHTML = "";
+        this._container.classList.remove("crt-standalone");
+        this._container.dataset.audioReactive = "false";
+        this._container = null;
+      }
+      this._active = false;
+    }
+    setMetrics(metrics) {
+      this._metrics = metrics ?? { rms: 0, bass: 0, mid: 0, treble: 0 };
+      if (!this._container) return;
+      this._container.style.setProperty("--audio-rms", String(this._metrics.rms));
+      this._container.style.setProperty("--audio-mid", String(this._metrics.mid));
+    }
+  };
+
   // src-player/backgrounds/BackgroundController.js
   var STORAGE_ENABLED = "gamedude.bgFxEnabled";
   var STORAGE_THEME = "gamedude.bgTheme";
+  var STORAGE_CRT = "gamedude.crtOverlay";
   var IDLE_METRICS = { rms: 0, bass: 0, mid: 0, treble: 0 };
+  var EXTRA_LAYER_CLASSES = [
+    "bg-canvas-underlay",
+    "bg-canvas-underlay-matrix",
+    "bg-scene-underlay",
+    "bg-crt-underlay"
+  ];
   var BackgroundController = class {
-    constructor(bgLayer, canvasEl, controlsEl) {
+    constructor(bgLayer, sceneEl, canvasEl, fxOverlayEl, controlsEl) {
       this.bgLayer = bgLayer;
+      this.sceneEl = sceneEl;
       this.canvasEl = canvasEl;
+      this.fxOverlayEl = fxOverlayEl;
       this.controlsEl = controlsEl;
       this.fxEnabled = localStorage.getItem(STORAGE_ENABLED) === "true";
+      this.crtOverlayEnabled = localStorage.getItem(STORAGE_CRT) === "true";
       this.themeId = localStorage.getItem(STORAGE_THEME) || FX_THEME_OPTIONS[0]?.id || "dither-blue";
       this.audioReactive = false;
       this._metrics = IDLE_METRICS;
-      this._renderers = {
+      this._canvasRenderers = {
         starfield: new StarfieldRenderer(),
-        matrix: new MatrixRenderer()
+        matrix: new MatrixRenderer(),
+        toasters: new FlyingToastersRenderer()
       };
-      this._activeRenderer = null;
+      this._sceneRenderers = {
+        dialup: new DialUpScene(),
+        bsod: new BsodScene(),
+        underConstruction: new UnderConstructionScene(),
+        crtStandalone: new CrtOverlay({ standalone: true })
+      };
+      this._stackCrt = new CrtOverlay({ standalone: false });
+      this._activeCanvas = null;
+      this._activeScene = null;
       this._buildControls();
       this._applyTheme();
     }
@@ -4289,6 +4829,7 @@
     setAudioReactive(active) {
       this.audioReactive = active && this.fxEnabled;
       this.bgLayer.dataset.audioReactive = this.audioReactive ? "true" : "false";
+      this.fxOverlayEl.dataset.audioReactive = this.audioReactive ? "true" : "false";
       if (!this.audioReactive) {
         this.applyAudioMetrics(IDLE_METRICS);
       } else {
@@ -4297,19 +4838,25 @@
     }
     applyAudioMetrics(metrics) {
       this._metrics = metrics ?? IDLE_METRICS;
-      if (!this.fxEnabled || !this.audioReactive) {
-        this._setCssVars(IDLE_METRICS);
-        this._activeRenderer?.setMetrics?.(IDLE_METRICS);
-        return;
+      const reactive = this.fxEnabled && this.audioReactive;
+      const payload = reactive ? this._metrics : IDLE_METRICS;
+      this._setCssVars(payload);
+      this._activeCanvas?.setMetrics?.(payload);
+      this._activeScene?.setMetrics?.(payload);
+      if (this._stackCrtActive()) {
+        this._stackCrt.setMetrics(payload);
       }
-      this._setCssVars(this._metrics);
-      this._activeRenderer?.setMetrics?.(this._metrics);
     }
     _setCssVars({ rms, bass, mid, treble }) {
       this.bgLayer.style.setProperty("--audio-rms", String(rms));
       this.bgLayer.style.setProperty("--audio-bass", String(bass));
       this.bgLayer.style.setProperty("--audio-mid", String(mid));
       this.bgLayer.style.setProperty("--audio-treble", String(treble));
+    }
+    _stackCrtActive() {
+      if (!this.crtOverlayEnabled) return false;
+      if (!this.fxEnabled) return true;
+      return getThemeById(this.themeId).id !== "crt";
     }
     _buildControls() {
       this.controlsEl.className = "bg-fx-controls";
@@ -4319,26 +4866,31 @@
         <input type="checkbox" class="bg-fx-toggle" role="switch" aria-label="Toggle Netstalgia backgrounds" />
         <span class="bg-fx-thumb-track" aria-hidden="true"><span class="bg-fx-thumb"></span></span>
       </label>
+      <label class="bg-fx-toggle-wrap crt-toggle-wrap">
+        <span class="bg-fx-label">CRT</span>
+        <input type="checkbox" class="crt-overlay-toggle" role="switch" aria-label="Toggle CRT scanline overlay" />
+        <span class="bg-fx-thumb-track crt-track" aria-hidden="true"><span class="bg-fx-thumb"></span></span>
+      </label>
       <select class="bg-fx-select" aria-label="Background theme" hidden></select>
     `;
       this.toggleInput = this.controlsEl.querySelector(".bg-fx-toggle");
+      this.crtToggleInput = this.controlsEl.querySelector(".crt-overlay-toggle");
       this.selectEl = this.controlsEl.querySelector(".bg-fx-select");
       this.toggleInput.checked = this.fxEnabled;
+      this.crtToggleInput.checked = this.crtOverlayEnabled;
       this.selectEl.hidden = !this.fxEnabled;
-      for (const theme of FX_THEME_OPTIONS) {
-        const opt = document.createElement("option");
-        opt.value = theme.id;
-        opt.textContent = theme.label;
-        if (theme.group === "canvas") opt.dataset.group = "canvas";
-        else opt.dataset.group = "css";
-        if (theme.id === this.themeId) opt.selected = true;
-        this.selectEl.appendChild(opt);
-      }
+      this._populateSelect();
       this.toggleInput.addEventListener("change", () => {
         this.fxEnabled = this.toggleInput.checked;
         localStorage.setItem(STORAGE_ENABLED, String(this.fxEnabled));
         this.selectEl.hidden = !this.fxEnabled;
         this._applyTheme();
+      });
+      this.crtToggleInput.addEventListener("change", () => {
+        this.crtOverlayEnabled = this.crtToggleInput.checked;
+        localStorage.setItem(STORAGE_CRT, String(this.crtOverlayEnabled));
+        this._applyCrtStack();
+        this.applyAudioMetrics(this._metrics);
       });
       this.selectEl.addEventListener("change", () => {
         this.themeId = this.selectEl.value;
@@ -4346,37 +4898,87 @@
         this._applyTheme();
       });
     }
-    _applyTheme() {
-      this._stopCanvasRenderer();
-      for (const cls of ALL_THEME_CLASS_NAMES) {
-        this.bgLayer.classList.remove(cls);
+    _populateSelect() {
+      this.selectEl.innerHTML = "";
+      const groups = ["css", "canvas", "scenes"];
+      for (const groupId of groups) {
+        const themes = FX_THEME_OPTIONS.filter((t4) => t4.group === groupId);
+        if (!themes.length) continue;
+        const optgroup = document.createElement("optgroup");
+        optgroup.label = THEME_GROUP_LABELS[groupId] ?? groupId;
+        for (const theme of themes) {
+          const opt = document.createElement("option");
+          opt.value = theme.id;
+          opt.textContent = theme.label;
+          if (theme.id === this.themeId) opt.selected = true;
+          optgroup.appendChild(opt);
+        }
+        this.selectEl.appendChild(optgroup);
       }
-      this.bgLayer.classList.remove("bg-canvas-underlay", "bg-canvas-underlay-matrix");
+    }
+    _applyTheme() {
+      this._stopAllRenderers();
+      this._clearLayerClasses();
       if (!this.fxEnabled) {
         this.bgLayer.classList.add("bg-gamedude-default");
         this.canvasEl.hidden = true;
-        this.setAudioReactive(false);
+        this.setAudioReactive(this.audioReactive);
+        this._applyCrtStack();
         return;
       }
       const theme = getThemeById(this.themeId);
-      if (theme.type === "canvas") {
-        this.bgLayer.classList.add(theme.underlayClass ?? "bg-canvas-underlay");
-        this.canvasEl.hidden = false;
-        this._activeRenderer = this._renderers[theme.renderer];
-        this._activeRenderer?.start(this.canvasEl);
-        this._activeRenderer?.setMetrics(this._metrics);
-      } else {
+      if (theme.underlayClass) {
+        this.bgLayer.classList.add(theme.underlayClass);
+      }
+      if (theme.type === "css") {
         this.bgLayer.classList.add(theme.className);
         this.canvasEl.hidden = true;
-        this._activeRenderer = null;
+      } else if (theme.type === "canvas") {
+        this.canvasEl.hidden = false;
+        this._activeCanvas = this._canvasRenderers[theme.renderer];
+        this._activeCanvas?.start(this.canvasEl);
+        this._activeCanvas?.setMetrics(this._metrics);
+      } else if (theme.type === "scene") {
+        this.canvasEl.hidden = true;
+        this._activeScene = this._sceneRenderers[theme.renderer];
+        if (theme.renderer === "crtStandalone") {
+          this._activeScene.start(this.fxOverlayEl);
+        } else {
+          this._activeScene.start(this.sceneEl);
+        }
+        this._activeScene?.setMetrics(this._metrics);
       }
+      this._applyCrtStack();
       this.setAudioReactive(this.audioReactive);
     }
-    _stopCanvasRenderer() {
-      for (const renderer of Object.values(this._renderers)) {
+    _applyCrtStack() {
+      const theme = getThemeById(this.themeId);
+      if (this._stackCrtActive()) {
+        this._stackCrt.start(this.fxOverlayEl);
+        this._stackCrt.setMetrics(this._metrics);
+      } else if (theme.renderer !== "crtStandalone") {
+        this._stackCrt.stop();
+      }
+    }
+    _clearLayerClasses() {
+      for (const cls of ALL_THEME_CLASS_NAMES) {
+        this.bgLayer.classList.remove(cls);
+      }
+      for (const cls of EXTRA_LAYER_CLASSES) {
+        this.bgLayer.classList.remove(cls);
+      }
+    }
+    _stopAllRenderers() {
+      for (const renderer of Object.values(this._canvasRenderers)) {
         renderer.stop();
       }
-      this._activeRenderer = null;
+      for (const renderer of Object.values(this._sceneRenderers)) {
+        renderer.stop();
+      }
+      this._stackCrt.stop();
+      this.sceneEl.innerHTML = "";
+      this._activeCanvas = null;
+      this._activeScene = null;
     }
   };
 
@@ -4478,10 +5080,18 @@
   }
   function initBackgroundFx() {
     const bgLayer = document.getElementById("retro-bg-layer");
+    const sceneEl = document.getElementById("retro-bg-scene");
     const canvasEl = document.getElementById("retro-bg-canvas");
+    const fxOverlayEl = document.getElementById("retro-bg-fx-overlay");
     const controlsEl = document.getElementById("bg-fx-controls");
-    if (!bgLayer || !canvasEl || !controlsEl) return;
-    const bgController = new BackgroundController(bgLayer, canvasEl, controlsEl);
+    if (!bgLayer || !sceneEl || !canvasEl || !fxOverlayEl || !controlsEl) return;
+    const bgController = new BackgroundController(
+      bgLayer,
+      sceneEl,
+      canvasEl,
+      fxOverlayEl,
+      controlsEl
+    );
     const analyser = new AudioAnalyser();
     analyser.onFrame = (metrics) => bgController.applyAudioMetrics(metrics);
     const attachCatalog = () => {

@@ -148,19 +148,35 @@ gameboy-console {
   transition: transform 0.15s ease, background 0.15s ease;
 }
 
-.bg-fx-toggle:checked + .bg-fx-thumb-track {
+.bg-fx-toggle:checked + .bg-fx-thumb-track,
+.crt-overlay-toggle:checked + .crt-track {
   background: rgba(139, 172, 15, 0.35);
   border-color: #8bac0f;
 }
 
-.bg-fx-toggle:checked + .bg-fx-thumb-track .bg-fx-thumb {
+.bg-fx-toggle:checked + .bg-fx-thumb-track .bg-fx-thumb,
+.crt-overlay-toggle:checked + .crt-track .bg-fx-thumb {
   transform: translateX(20px);
   background: #eaee09;
 }
 
-.bg-fx-toggle:focus-visible + .bg-fx-thumb-track {
+.crt-overlay-toggle:checked + .crt-track {
+  background: rgba(0, 255, 0, 0.15);
+  border-color: #00ff00;
+}
+
+.crt-overlay-toggle:checked + .crt-track .bg-fx-thumb {
+  background: #00ff00;
+}
+
+.bg-fx-toggle:focus-visible + .bg-fx-thumb-track,
+.crt-overlay-toggle:focus-visible + .crt-track {
   outline: 2px solid #eaee09;
   outline-offset: 2px;
+}
+
+.crt-toggle-wrap .bg-fx-label {
+  color: rgba(0, 255, 0, 0.75);
 }
 
 .bg-fx-select {

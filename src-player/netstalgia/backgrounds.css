@@ -155,6 +155,18 @@
   background-color: #000000;
 }
 
+.bg-win95-teal {
+  background-color: #008080;
+}
+
+.bg-crt-underlay {
+  background-color: #0a0a0a;
+}
+
+.bg-scene-underlay {
+  background-color: #000080;
+}
+
 #retro-bg-layer[data-audio-reactive='true'] {
   --audio-rms: 0;
   --audio-bass: 0;
