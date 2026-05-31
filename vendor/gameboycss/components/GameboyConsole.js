@@ -241,8 +241,10 @@ export class GameboyConsole extends LitElement {
       padding: 0 8px;
       background: #767189;
       position: absolute;
-      right: 30px;
+      left: 50%;
       top: 8px;
+      transform: translateX(-50%);
+      white-space: nowrap;
     }
     .screen .bottom { display: flex; }
     .screen .bottom .led {
