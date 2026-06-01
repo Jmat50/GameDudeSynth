@@ -14,7 +14,8 @@
     "demos:manifest": "node scripts/generate-demos-manifest.js",
     "process:midi": "npx vite-node scripts/process-local-midi-v2.ts",
     "test:track-analysis": "npx vite-node scripts/test-track-analysis.ts",
-    "test:preview-window": "npx vite-node scripts/test-preview-window.ts"
+    "test:preview-window": "npx vite-node scripts/test-preview-window.ts",
+    "test:viz-controller": "node scripts/test-viz-controller.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

@@ -1,5 +1,8 @@
 const STORAGE_ENABLED = 'gamedude.vizEnabled';
 const STORAGE_OPACITY = 'gamedude.vizOpacity';
+const PRESET_MIN_INTERVAL_MS = 170;
+const PRESET_UNLOCK_DELAY_MS = 230;
+const PRESET_DEFER_FLOOR_MS = 20;
 
 /** Resolve vendor URLs from the page URL (works on GitHub Pages subpaths). */
 function vendorBaseUrl() {
@@ -33,12 +36,20 @@ export class ProjectMController {
     this.enabled = localStorage.getItem(STORAGE_ENABLED) === 'true';
     this.opacity = parseFloat(localStorage.getItem(STORAGE_OPACITY) ?? '0.88');
     this.audioActive = false;
+    this.onEnabledChange = null;
     this._module = null;
     this._raf = null;
     this._resizeObserver = null;
     this._statusEl = null;
     this._error = null;
     this._ready = false;
+    this._pcmPtr = 0;
+    this._pcmCapacity = 0;
+    this._presetButtons = [];
+    this._presetUnlockTimer = null;
+    this._presetLastSwitchMs = 0;
+    this._presetQueueDir = 0;
+    this._presetBusy = false;
     this._wasmBase = vendorBaseUrl();
     this._scriptUrl = new URL('projectm.js', this._wasmBase).href;
 
@@ -61,9 +72,9 @@ export class ProjectMController {
 
   setAudioActive(active) {
     this.audioActive = active;
-    if (this.enabled && this._ready) {
+    if (this.enabled && this._ready && this.audioActive) {
       this._startLoop();
-    } else if (!this.enabled) {
+    } else {
       this._stopLoop();
     }
   }
@@ -85,16 +96,26 @@ export class ProjectMController {
     if (!this._module) {
       await this._loadModule();
     }
-    if (this._ready) {
+    this._setPresetButtonsDisabled(!this._ready);
+    if (this._ready && this.audioActive) {
       this._startLoop();
     }
+    this.onEnabledChange?.(true);
   }
 
   disable() {
     this.enabled = false;
     localStorage.setItem(STORAGE_ENABLED, 'false');
     this.hostEl.classList.add('is-disabled');
+    this._setPresetButtonsDisabled(true);
+    this._presetQueueDir = 0;
+    this._presetBusy = false;
+    if (this._presetUnlockTimer) {
+      clearTimeout(this._presetUnlockTimer);
+      this._presetUnlockTimer = null;
+    }
     this._stopLoop();
+    this.onEnabledChange?.(false);
   }
 
   _buildControls() {
@@ -124,14 +145,16 @@ export class ProjectMController {
     prevBtn.type = 'button';
     prevBtn.className = 'viz-btn';
     prevBtn.textContent = '◀ Preset';
-    prevBtn.addEventListener('click', () => this._module?.ccall('pm_prev_preset', null, [], []));
+    prevBtn.addEventListener('click', () => this._changePreset(-1));
 
     const nextBtn = document.createElement('button');
     nextBtn.type = 'button';
     nextBtn.className = 'viz-btn';
     nextBtn.textContent = 'Preset ▶';
-    nextBtn.addEventListener('click', () => this._module?.ccall('pm_next_preset', null, [], []));
+    nextBtn.addEventListener('click', () => this._changePreset(1));
 
+    this._presetButtons = [prevBtn, nextBtn];
+    this._setPresetButtonsDisabled(true);
     presetRow.append(prevBtn, nextBtn);
 
     const opacityRow = document.createElement('label');
@@ -216,13 +239,16 @@ export class ProjectMController {
       }
 
       this._ready = true;
+      // Keep preset changes fully user-driven. Avoid auto switch collisions while browsing.
+      this._module.ccall('pm_set_preset_locked', null, ['number'], [1]);
       if (this._statusEl) {
         this._statusEl.remove();
         this._statusEl = null;
       }
 
       this._resize();
-      if (this.enabled) {
+      this._setPresetButtonsDisabled(false);
+      if (this.enabled && this.audioActive) {
         this._startLoop();
       }
     } catch (err) {
@@ -275,10 +301,80 @@ export class ProjectMController {
     }
   }
 
+  _changePreset(direction) {
+    if (!this._module || !this._ready || !this.enabled) return;
+    const now = performance.now();
+    const elapsed = now - this._presetLastSwitchMs;
+    if (this._presetBusy || elapsed < PRESET_MIN_INTERVAL_MS) {
+      this._presetQueueDir = direction;
+      if (!this._presetBusy && !this._presetUnlockTimer) {
+        const waitMs = Math.max(PRESET_DEFER_FLOOR_MS, PRESET_MIN_INTERVAL_MS - elapsed);
+        this._presetUnlockTimer = setTimeout(() => {
+          this._presetUnlockTimer = null;
+          if (!this.enabled) return;
+          const queuedDir = this._presetQueueDir;
+          this._presetQueueDir = 0;
+          if (queuedDir !== 0) {
+            this._changePreset(queuedDir);
+          }
+        }, waitMs);
+      }
+      return;
+    }
+    this._presetLastSwitchMs = now;
+
+    this._presetBusy = true;
+    this._setPresetButtonsDisabled(true);
+    try {
+      const fn = direction < 0 ? 'pm_prev_preset' : 'pm_next_preset';
+      this._module.ccall(fn, null, [], []);
+    } catch (err) {
+      this._setError(err?.message || 'Preset switch failed');
+    } finally {
+      if (this._presetUnlockTimer) {
+        clearTimeout(this._presetUnlockTimer);
+      }
+      this._presetUnlockTimer = setTimeout(() => {
+        this._presetUnlockTimer = null;
+        this._presetBusy = false;
+        this._setPresetButtonsDisabled(!this.enabled);
+        if (!this.enabled) return;
+        if (this._presetQueueDir !== 0) {
+          const queuedDir = this._presetQueueDir;
+          this._presetQueueDir = 0;
+          this._changePreset(queuedDir);
+        }
+      }, PRESET_UNLOCK_DELAY_MS);
+    }
+  }
+
+  _setPresetButtonsDisabled(disabled) {
+    for (const btn of this._presetButtons) {
+      btn.disabled = disabled;
+    }
+  }
+
+  _ensurePcmBuffer(byteLen) {
+    if (!this._module) return 0;
+    if (this._pcmPtr && this._pcmCapacity >= byteLen) {
+      return this._pcmPtr;
+    }
+    if (this._pcmPtr) {
+      this._module._free(this._pcmPtr);
+      this._pcmPtr = 0;
+      this._pcmCapacity = 0;
+    }
+    this._pcmPtr = this._module._malloc(byteLen);
+    this._pcmCapacity = byteLen;
+    return this._pcmPtr;
+  }
+
   _feedPcm(interleaved, samplesPerChannel) {
     const mod = this._module;
+    if (!mod || !interleaved.length) return;
     const byteLen = interleaved.length * 4;
-    const ptr = mod._malloc(byteLen);
+    const ptr = this._ensurePcmBuffer(byteLen);
+    if (!ptr) return;
     mod.HEAPF32.set(interleaved, ptr >> 2);
     mod.ccall(
       'pm_feed_pcm',
@@ -286,6 +382,5 @@ export class ProjectMController {
       ['number', 'number', 'number'],
       [ptr, samplesPerChannel, 2],
     );
-    mod._free(ptr);
   }
 }

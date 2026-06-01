@@ -3910,6 +3910,9 @@
   // src-player/visualizer/ProjectMController.js
   var STORAGE_ENABLED = "gamedude.vizEnabled";
   var STORAGE_OPACITY = "gamedude.vizOpacity";
+  var PRESET_MIN_INTERVAL_MS = 170;
+  var PRESET_UNLOCK_DELAY_MS = 230;
+  var PRESET_DEFER_FLOOR_MS = 20;
   function vendorBaseUrl() {
     return new URL("./public/vendor/projectm/", window.location.href).href;
   }
@@ -3938,12 +3941,20 @@
       this.enabled = localStorage.getItem(STORAGE_ENABLED) === "true";
       this.opacity = parseFloat(localStorage.getItem(STORAGE_OPACITY) ?? "0.88");
       this.audioActive = false;
+      this.onEnabledChange = null;
       this._module = null;
       this._raf = null;
       this._resizeObserver = null;
       this._statusEl = null;
       this._error = null;
       this._ready = false;
+      this._pcmPtr = 0;
+      this._pcmCapacity = 0;
+      this._presetButtons = [];
+      this._presetUnlockTimer = null;
+      this._presetLastSwitchMs = 0;
+      this._presetQueueDir = 0;
+      this._presetBusy = false;
       this._wasmBase = vendorBaseUrl();
       this._scriptUrl = new URL("projectm.js", this._wasmBase).href;
       document.documentElement.style.setProperty("--viz-opacity", String(this.opacity));
@@ -3961,9 +3972,9 @@
     }
     setAudioActive(active) {
       this.audioActive = active;
-      if (this.enabled && this._ready) {
+      if (this.enabled && this._ready && this.audioActive) {
         this._startLoop();
-      } else if (!this.enabled) {
+      } else {
         this._stopLoop();
       }
     }
@@ -3982,15 +3993,25 @@
       if (!this._module) {
         await this._loadModule();
       }
-      if (this._ready) {
+      this._setPresetButtonsDisabled(!this._ready);
+      if (this._ready && this.audioActive) {
         this._startLoop();
       }
+      this.onEnabledChange?.(true);
     }
     disable() {
       this.enabled = false;
       localStorage.setItem(STORAGE_ENABLED, "false");
       this.hostEl.classList.add("is-disabled");
+      this._setPresetButtonsDisabled(true);
+      this._presetQueueDir = 0;
+      this._presetBusy = false;
+      if (this._presetUnlockTimer) {
+        clearTimeout(this._presetUnlockTimer);
+        this._presetUnlockTimer = null;
+      }
       this._stopLoop();
+      this.onEnabledChange?.(false);
     }
     _buildControls() {
       this.controlsEl.innerHTML = "";
@@ -4017,12 +4038,14 @@
       prevBtn.type = "button";
       prevBtn.className = "viz-btn";
       prevBtn.textContent = "\u25C0 Preset";
-      prevBtn.addEventListener("click", () => this._module?.ccall("pm_prev_preset", null, [], []));
+      prevBtn.addEventListener("click", () => this._changePreset(-1));
       const nextBtn = document.createElement("button");
       nextBtn.type = "button";
       nextBtn.className = "viz-btn";
       nextBtn.textContent = "Preset \u25B6";
-      nextBtn.addEventListener("click", () => this._module?.ccall("pm_next_preset", null, [], []));
+      nextBtn.addEventListener("click", () => this._changePreset(1));
+      this._presetButtons = [prevBtn, nextBtn];
+      this._setPresetButtonsDisabled(true);
       presetRow.append(prevBtn, nextBtn);
       const opacityRow = document.createElement("label");
       opacityRow.className = "viz-controls-row";
@@ -4095,12 +4118,14 @@
           throw new Error("projectM failed to initialize (SDL/WebGL). Check the browser console.");
         }
         this._ready = true;
+        this._module.ccall("pm_set_preset_locked", null, ["number"], [1]);
         if (this._statusEl) {
           this._statusEl.remove();
           this._statusEl = null;
         }
         this._resize();
-        if (this.enabled) {
+        this._setPresetButtonsDisabled(false);
+        if (this.enabled && this.audioActive) {
           this._startLoop();
         }
       } catch (err) {
@@ -4143,10 +4168,76 @@
         this._raf = null;
       }
     }
+    _changePreset(direction) {
+      if (!this._module || !this._ready || !this.enabled) return;
+      const now = performance.now();
+      const elapsed = now - this._presetLastSwitchMs;
+      if (this._presetBusy || elapsed < PRESET_MIN_INTERVAL_MS) {
+        this._presetQueueDir = direction;
+        if (!this._presetBusy && !this._presetUnlockTimer) {
+          const waitMs = Math.max(PRESET_DEFER_FLOOR_MS, PRESET_MIN_INTERVAL_MS - elapsed);
+          this._presetUnlockTimer = setTimeout(() => {
+            this._presetUnlockTimer = null;
+            if (!this.enabled) return;
+            const queuedDir = this._presetQueueDir;
+            this._presetQueueDir = 0;
+            if (queuedDir !== 0) {
+              this._changePreset(queuedDir);
+            }
+          }, waitMs);
+        }
+        return;
+      }
+      this._presetLastSwitchMs = now;
+      this._presetBusy = true;
+      this._setPresetButtonsDisabled(true);
+      try {
+        const fn = direction < 0 ? "pm_prev_preset" : "pm_next_preset";
+        this._module.ccall(fn, null, [], []);
+      } catch (err) {
+        this._setError(err?.message || "Preset switch failed");
+      } finally {
+        if (this._presetUnlockTimer) {
+          clearTimeout(this._presetUnlockTimer);
+        }
+        this._presetUnlockTimer = setTimeout(() => {
+          this._presetUnlockTimer = null;
+          this._presetBusy = false;
+          this._setPresetButtonsDisabled(!this.enabled);
+          if (!this.enabled) return;
+          if (this._presetQueueDir !== 0) {
+            const queuedDir = this._presetQueueDir;
+            this._presetQueueDir = 0;
+            this._changePreset(queuedDir);
+          }
+        }, PRESET_UNLOCK_DELAY_MS);
+      }
+    }
+    _setPresetButtonsDisabled(disabled) {
+      for (const btn of this._presetButtons) {
+        btn.disabled = disabled;
+      }
+    }
+    _ensurePcmBuffer(byteLen) {
+      if (!this._module) return 0;
+      if (this._pcmPtr && this._pcmCapacity >= byteLen) {
+        return this._pcmPtr;
+      }
+      if (this._pcmPtr) {
+        this._module._free(this._pcmPtr);
+        this._pcmPtr = 0;
+        this._pcmCapacity = 0;
+      }
+      this._pcmPtr = this._module._malloc(byteLen);
+      this._pcmCapacity = byteLen;
+      return this._pcmPtr;
+    }
     _feedPcm(interleaved, samplesPerChannel) {
       const mod = this._module;
+      if (!mod || !interleaved.length) return;
       const byteLen = interleaved.length * 4;
-      const ptr = mod._malloc(byteLen);
+      const ptr = this._ensurePcmBuffer(byteLen);
+      if (!ptr) return;
       mod.HEAPF32.set(interleaved, ptr >> 2);
       mod.ccall(
         "pm_feed_pcm",
@@ -4154,7 +4245,6 @@
         ["number", "number", "number"],
         [ptr, samplesPerChannel, 2]
       );
-      mod._free(ptr);
     }
   };
 
@@ -4191,29 +4281,27 @@
         return;
       }
       this._processor.onaudioprocess = (event) => {
-        if (!this.onPcm) return;
         const inL = event.inputBuffer.getChannelData(0);
         const inR = event.inputBuffer.numberOfChannels > 1 ? event.inputBuffer.getChannelData(1) : inL;
         const outL = event.outputBuffer.getChannelData(0);
         const outR = event.outputBuffer.numberOfChannels > 1 ? event.outputBuffer.getChannelData(1) : outL;
         const len = inL.length;
+        if (len * 2 > this._stereoScratch.length) {
+          this._stereoScratch = new Float32Array(len * 2);
+        }
         const scratch = this._stereoScratch;
         for (let i6 = 0; i6 < len; i6++) {
           const l3 = inL[i6];
           const r4 = inR[i6];
           scratch[i6 * 2] = l3;
           scratch[i6 * 2 + 1] = r4;
-          outL[i6] = l3;
-          outR[i6] = r4;
+          outL[i6] = 0;
+          outR[i6] = 0;
         }
-        this.onPcm(scratch.subarray(0, len * 2), len);
+        this.onPcm?.(scratch.subarray(0, len * 2), len);
       };
       const master = import_howler3.Howler.masterGain;
       if (!master) return;
-      try {
-        master.disconnect();
-      } catch {
-      }
       master.connect(this._processor);
       this._processor.connect(ctx.destination);
       this._wired = true;
@@ -4254,6 +4342,18 @@
         return;
       }
       catalog.audioTap = tap;
+      const syncVizWithPlayback = () => {
+        const shouldRun = !!catalog.isPlaying?.() && viz.isEnabled;
+        viz.setAudioActive(shouldRun);
+        if (shouldRun) {
+          tap.start();
+        } else {
+          tap.stop();
+        }
+      };
+      viz.onEnabledChange = () => {
+        syncVizWithPlayback();
+      };
       const prevOnPlayStateChange = catalog.onPlayStateChange;
       catalog.onPlayStateChange = (playing) => {
         viz.setAudioActive(playing && viz.isEnabled);
@@ -4264,6 +4364,7 @@
         }
         prevOnPlayStateChange?.(playing);
       };
+      syncVizWithPlayback();
     };
     attachCatalog();
   }

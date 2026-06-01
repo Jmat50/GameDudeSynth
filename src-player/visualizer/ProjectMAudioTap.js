@@ -42,8 +42,6 @@ export class ProjectMAudioTap {
     }
 
     this._processor.onaudioprocess = (event) => {
-      if (!this.onPcm) return;
-
       const inL = event.inputBuffer.getChannelData(0);
       const inR = event.inputBuffer.numberOfChannels > 1
         ? event.inputBuffer.getChannelData(1)
@@ -54,28 +52,28 @@ export class ProjectMAudioTap {
         : outL;
 
       const len = inL.length;
+      if (len * 2 > this._stereoScratch.length) {
+        this._stereoScratch = new Float32Array(len * 2);
+      }
       const scratch = this._stereoScratch;
       for (let i = 0; i < len; i++) {
         const l = inL[i];
         const r = inR[i];
         scratch[i * 2] = l;
         scratch[i * 2 + 1] = r;
-        outL[i] = l;
-        outR[i] = r;
+        // Keep the tap branch silent. Audible output stays on Howler's direct master path.
+        outL[i] = 0;
+        outR[i] = 0;
       }
 
-      this.onPcm(scratch.subarray(0, len * 2), len);
+      this.onPcm?.(scratch.subarray(0, len * 2), len);
     };
 
     const master = Howler.masterGain;
     if (!master) return;
 
-    try {
-      master.disconnect();
-    } catch {
-      /* already disconnected */
-    }
-
+    // Keep Howler's original master->destination route and branch to a tap node.
+    // This avoids audible glitches if ScriptProcessor callbacks stall.
     master.connect(this._processor);
     this._processor.connect(ctx.destination);
     this._wired = true;

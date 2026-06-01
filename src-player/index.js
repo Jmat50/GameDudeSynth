@@ -41,6 +41,20 @@ function initProjectMVisualizer() {
     }
 
     catalog.audioTap = tap;
+    const syncVizWithPlayback = () => {
+      const shouldRun = !!catalog.isPlaying?.() && viz.isEnabled;
+      viz.setAudioActive(shouldRun);
+      if (shouldRun) {
+        tap.start();
+      } else {
+        tap.stop();
+      }
+    };
+
+    viz.onEnabledChange = () => {
+      syncVizWithPlayback();
+    };
+
     const prevOnPlayStateChange = catalog.onPlayStateChange;
     catalog.onPlayStateChange = (playing) => {
       viz.setAudioActive(playing && viz.isEnabled);
@@ -51,6 +65,9 @@ function initProjectMVisualizer() {
       }
       prevOnPlayStateChange?.(playing);
     };
+
+    // Handle Viz toggle changes while a track is already playing.
+    syncVizWithPlayback();
   };
 
   attachCatalog();
