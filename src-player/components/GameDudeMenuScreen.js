@@ -129,6 +129,9 @@ export class GameDudeMenuScreen extends LitElement {
     if (action === 'a' || action === 'start') {
       if (this.scene === 'menu' && this.tracks.length > 0) {
         this._playCurrent();
+      } else if (this.scene === 'playing') {
+        this.catalog.togglePause();
+        this.requestUpdate();
       }
       return;
     }
@@ -313,16 +316,17 @@ export class GameDudeMenuScreen extends LitElement {
     if (this.scene === 'playing') {
       const track = this.catalog.getCurrentTrack();
       const pct = this.duration > 0 ? Math.min(100, (this.elapsed / this.duration) * 100) : 0;
+      const isPaused = this.catalog.isPaused();
       return html`
         <div class="viewport">
           <div class="title">NOW PLAYING</div>
           <div class="rule"></div>
           <div class="playing">
             <div class="track-name">${track?.title ?? 'Unknown'}</div>
-            <div class="now ${this.showBlink ? '' : 'blink-hidden'}">♪ PLAYING</div>
+            <div class="now ${this.showBlink || isPaused ? '' : 'blink-hidden'}">${isPaused ? '॥ PAUSED' : '♪ PLAYING'}</div>
             <div class="time">${this._formatTime(this.elapsed)} / ${this._formatTime(this.duration)}</div>
             <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
-            <div class="hint">B = STOP · ← -15s · → +15s</div>
+            <div class="hint">A/START = PAUSE/RESUME · B = STOP · ← -15s · → +15s</div>
           </div>
         </div>
       `;

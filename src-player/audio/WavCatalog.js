@@ -30,6 +30,8 @@ export class WavCatalog {
     this.onPlayStateChange = null;
     this.audioTap = null;
     this._progressTimer = null;
+    this.currentSoundId = null;
+    this._paused = false;
   }
 
   get tracks() {
@@ -86,6 +88,7 @@ export class WavCatalog {
       html5: false,
       volume: Howler.volume(),
       onplay: () => {
+        this._paused = false;
         this.audioTap?.start();
         this.onPlayStateChange?.(true);
       },
@@ -99,12 +102,18 @@ export class WavCatalog {
         this._handlePlaybackEnd();
       },
       onstop: () => {
+        this._paused = false;
+        this.audioTap?.stop();
+        this.onPlayStateChange?.(false);
+      },
+      onpause: () => {
+        this._paused = true;
         this.audioTap?.stop();
         this.onPlayStateChange?.(false);
       },
     });
 
-    this.currentHowl.play();
+    this.currentSoundId = this.currentHowl.play();
     this._progressTimer = setInterval(() => {
       if (!this.currentHowl?.playing()) return;
       const elapsed = this.currentHowl.seek() || 0;
@@ -128,6 +137,8 @@ export class WavCatalog {
   stop(fireEnd = true) {
     this._clearProgress();
     if (this.currentHowl) {
+      this._paused = false;
+      this.currentSoundId = null;
       this.audioTap?.stop();
       this.onPlayStateChange?.(false);
       this.currentHowl.stop();
@@ -140,6 +151,36 @@ export class WavCatalog {
 
   isPlaying() {
     return !!this.currentHowl?.playing();
+  }
+
+  isPaused() {
+    return !!this.currentHowl && this._paused;
+  }
+
+  pause() {
+    if (!this.currentHowl?.playing()) return false;
+    if (this.currentSoundId != null) {
+      this.currentHowl.pause(this.currentSoundId);
+    } else {
+      this.currentHowl.pause();
+    }
+    return true;
+  }
+
+  resume() {
+    if (!this.currentHowl || !this._paused) return false;
+    if (this.currentSoundId != null) {
+      this.currentHowl.play(this.currentSoundId);
+    } else {
+      this.currentSoundId = this.currentHowl.play();
+    }
+    return true;
+  }
+
+  togglePause() {
+    if (this.isPlaying()) return this.pause();
+    if (this.isPaused()) return this.resume();
+    return false;
   }
 
   getCurrentTrack() {
@@ -155,6 +196,8 @@ export class WavCatalog {
 
   _handlePlaybackEnd() {
     this._clearProgress();
+    this._paused = false;
+    this.currentSoundId = null;
     this.audioTap?.stop();
     this.onPlayStateChange?.(false);
     this.currentHowl = null;

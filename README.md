@@ -127,3 +127,9 @@ npm run build:all && npm run demos:manifest && npm run build:pages
 ## License
 
 MIT. WAV player console shell includes components adapted from [gameboycss](https://github.com/ManzDev/gameboycss) (ISC, ManzDev) — see `vendor/gameboycss/README.md`.
+
+## External Project Credits
+
+- [gameboycss](https://github.com/ManzDev/gameboycss) by ManzDev (ISC) — Game Boy console shell styling/components.
+- [projectM](https://github.com/projectM-visualizer/projectm) (LGPL-2.1+) — WAV player background visualizer.
+- [presets-cream-of-the-crop](https://github.com/projectM-visualizer/presets-cream-of-the-crop) — community Milkdrop preset pack used by the visualizer.
