@@ -241,6 +241,20 @@ export class ProjectMController {
       this._ready = true;
       // Keep preset changes fully user-driven. Avoid auto switch collisions while browsing.
       this._module.ccall('pm_set_preset_locked', null, ['number'], [1]);
+      // Gate beat-driven preset cycling at the bridge layer (prevents rapid flicker).
+      try {
+        this._module.ccall('pm_set_auto_preset_switch_enabled', null, ['number'], [0]);
+
+        const presetCount = this._module.ccall('pm_get_preset_count', 'number', [], []);
+        const presetIndex = this._module.ccall('pm_get_preset_index', 'number', [], []);
+        console.log(`[projectM] presets loaded: ${presetCount}, current=${presetIndex}`);
+        for (let i = 0; i < presetCount; i++) {
+          const path = this._module.ccall('pm_get_preset_path', 'string', ['number'], [i]);
+          console.log(`[projectM] preset[${i}]=${path}`);
+        }
+      } catch {
+        /* non-fatal: introspection may fail if functions are missing */
+      }
       if (this._statusEl) {
         this._statusEl.remove();
         this._statusEl = null;

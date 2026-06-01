@@ -35,6 +35,7 @@ struct AppState {
 };
 
 AppState g_app;
+bool g_autoPresetSwitchEnabled = false;
 
 void loadPresetAt(size_t index, bool smooth)
 {
@@ -48,6 +49,12 @@ void loadPresetAt(size_t index, bool smooth)
 
 void onPresetSwitchRequested(bool is_hard_cut, void* /*user_data*/)
 {
+    // Default to "manual-only": beat-driven preset cycling causes rapid flicker.
+    if (!g_autoPresetSwitchEnabled)
+    {
+        return;
+    }
+
     if (!g_app.pm || g_app.presetPaths.empty())
     {
         return;
@@ -283,6 +290,12 @@ void pm_prev_preset()
 }
 
 EMSCRIPTEN_KEEPALIVE
+void pm_set_auto_preset_switch_enabled(int enabled)
+{
+    g_autoPresetSwitchEnabled = (enabled != 0);
+}
+
+EMSCRIPTEN_KEEPALIVE
 void pm_set_preset_locked(int locked)
 {
     if (g_app.pm)
@@ -301,6 +314,16 @@ EMSCRIPTEN_KEEPALIVE
 int pm_get_preset_index()
 {
     return static_cast<int>(g_app.presetIndex);
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* pm_get_preset_path(int index)
+{
+    if (index < 0 || index >= static_cast<int>(g_app.presetPaths.size()))
+    {
+        return "";
+    }
+    return g_app.presetPaths[static_cast<size_t>(index)].c_str();
 }
 
 } // extern "C"

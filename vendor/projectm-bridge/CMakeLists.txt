@@ -36,7 +36,7 @@ target_link_options(projectm PRIVATE
     "SHELL:-s MODULARIZE=1"
     "SHELL:-s EXPORT_NAME=createProjectMModule"
     "SHELL:-s ENVIRONMENT=web"
-    "SHELL:-s EXPORTED_FUNCTIONS=['_pm_init','_pm_destroy','_pm_resize','_pm_render_frame','_pm_feed_pcm','_pm_next_preset','_pm_prev_preset','_pm_set_preset_locked','_pm_get_preset_count','_pm_get_preset_index','_malloc','_free']"
+    "SHELL:-s EXPORTED_FUNCTIONS=['_pm_init','_pm_destroy','_pm_resize','_pm_render_frame','_pm_feed_pcm','_pm_next_preset','_pm_prev_preset','_pm_set_preset_locked','_pm_set_auto_preset_switch_enabled','_pm_get_preset_count','_pm_get_preset_index','_pm_get_preset_path','_malloc','_free']"
     "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','HEAPF32']"
     "SHELL:--preload-file \"${PRESETS_DIR_NATIVE}@/presets\""
 )

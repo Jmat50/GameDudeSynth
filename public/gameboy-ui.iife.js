@@ -4119,6 +4119,17 @@
         }
         this._ready = true;
         this._module.ccall("pm_set_preset_locked", null, ["number"], [1]);
+        try {
+          this._module.ccall("pm_set_auto_preset_switch_enabled", null, ["number"], [0]);
+          const presetCount = this._module.ccall("pm_get_preset_count", "number", [], []);
+          const presetIndex = this._module.ccall("pm_get_preset_index", "number", [], []);
+          console.log(`[projectM] presets loaded: ${presetCount}, current=${presetIndex}`);
+          for (let i6 = 0; i6 < presetCount; i6++) {
+            const path = this._module.ccall("pm_get_preset_path", "string", ["number"], [i6]);
+            console.log(`[projectM] preset[${i6}]=${path}`);
+          }
+        } catch {
+        }
         if (this._statusEl) {
           this._statusEl.remove();
           this._statusEl = null;
