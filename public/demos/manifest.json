@@ -1,19 +1,39 @@
 {
   "tracks": [
     {
-      "id": "CarlyRaeJepsen - Call Me Maybe",
-      "title": "CarlyRaeJepsen Call Me Maybe",
-      "url": "./public/demos/CarlyRaeJepsen - Call Me Maybe.wav"
+      "id": "Billy Joel - We Didn't Start The Fire",
+      "title": "Billy Joel We Didn'T Start The Fire",
+      "url": "./public/demos/Billy Joel - We Didn't Start The Fire.wav"
     },
     {
-      "id": "coldplay clocks",
+      "id": "Blue Öyster Cult - (Don't Fear) The Reaper WIP",
+      "title": "Blue ÖYster Cult (Don'T Fear) The Reaper WIP",
+      "url": "./public/demos/Blue Öyster Cult - (Don't Fear) The Reaper WIP.wav"
+    },
+    {
+      "id": "Breaking Benjamin - Diary of Jane",
+      "title": "Breaking Benjamin Diary Of Jane",
+      "url": "./public/demos/Breaking Benjamin - Diary of Jane.wav"
+    },
+    {
+      "id": "Carly Rae Jepsen - Call Me Maybe",
+      "title": "Carly Rae Jepsen Call Me Maybe",
+      "url": "./public/demos/Carly Rae Jepsen - Call Me Maybe.wav"
+    },
+    {
+      "id": "Coldplay - Clocks",
       "title": "Coldplay Clocks",
-      "url": "./public/demos/coldplay clocks.wav"
+      "url": "./public/demos/Coldplay - Clocks.wav"
     },
     {
-      "id": "Diary Of Jane - Breaking Benjamin",
-      "title": "Diary Of Jane Breaking Benjamin",
-      "url": "./public/demos/Diary Of Jane - Breaking Benjamin.wav"
+      "id": "Eiffel 65 - Blue",
+      "title": "Eiffel 65 Blue",
+      "url": "./public/demos/Eiffel 65 - Blue.wav"
+    },
+    {
+      "id": "Haddaway - What Is Love",
+      "title": "Haddaway What Is Love",
+      "url": "./public/demos/Haddaway - What Is Love.wav"
     },
     {
       "id": "Led Zeppelin - Rock and Roll",
@@ -29,16 +49,6 @@
       "id": "Presidents of the United States - Peaches",
       "title": "Presidents Of The United States Peaches",
       "url": "./public/demos/Presidents of the United States - Peaches.wav"
-    },
-    {
-      "id": "We Didn't Start The Fire",
-      "title": "We Didn'T Start The Fire",
-      "url": "./public/demos/We Didn't Start The Fire.wav"
-    },
-    {
-      "id": "What Is Love",
-      "title": "What Is Love",
-      "url": "./public/demos/What Is Love.wav"
     }
   ]
 }

@@ -86,6 +86,10 @@ bool loadPresetManifest(const char* manifestPath)
             continue;
         }
         line = line.substr(start);
+        if (!line.empty() && line[0] == '\xEF' && line.size() >= 3 && line[1] == '\xBB' && line[2] == '\xBF')
+        {
+            line = line.substr(3);
+        }
         if (line.empty() || line[0] == '#')
         {
             continue;

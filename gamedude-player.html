@@ -10,6 +10,19 @@
 <body>
   <div id="projectm-host" class="is-disabled" aria-hidden="true"></div>
   <!-- Inline position fallback: without visualizer.css, controls sit in document flow (top-center), not top-right. -->
+  <div id="fullscreen-control">
+    <button
+      type="button"
+      id="fullscreen-toggle"
+      class="viz-btn"
+      aria-pressed="false"
+      aria-label="Enter fullscreen"
+      title="Enter fullscreen"
+      hidden
+    >
+      Fullscreen
+    </button>
+  </div>
   <div
     id="viz-controls"
     style="position: fixed; top: 12px; right: 12px; z-index: 100; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;"
@@ -32,5 +45,71 @@
   <!-- projectM must load before the player bundle (sets createProjectMModule + .data path). -->
   <script src="./public/vendor/projectm/projectm.js"></script>
   <script src="./public/gameboy-ui.iife.js"></script>
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var btn = document.getElementById('fullscreen-toggle');
+      if (!btn) return;
+
+      function requestFs(el) {
+        if (el.requestFullscreen) return el.requestFullscreen();
+        if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+        if (el.mozRequestFullScreen) return el.mozRequestFullScreen();
+        if (el.msRequestFullscreen) return el.msRequestFullscreen();
+        return Promise.reject(new Error('Fullscreen not supported'));
+      }
+
+      function exitFs() {
+        if (document.exitFullscreen) return document.exitFullscreen();
+        if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+        if (document.mozCancelFullScreen) return document.mozCancelFullScreen();
+        if (document.msExitFullscreen) return document.msExitFullscreen();
+        return Promise.reject(new Error('Fullscreen not supported'));
+      }
+
+      function isFsActive() {
+        return !!(
+          document.fullscreenElement ||
+          document.webkitFullscreenElement ||
+          document.mozFullScreenElement ||
+          document.msFullscreenElement
+        );
+      }
+
+      var canFullscreen =
+        root.requestFullscreen ||
+        root.webkitRequestFullscreen ||
+        root.mozRequestFullScreen ||
+        root.msRequestFullscreen;
+
+      if (!canFullscreen) return;
+
+      btn.hidden = false;
+
+      function syncUi() {
+        var active = isFsActive();
+        btn.textContent = active ? 'Exit fullscreen' : 'Fullscreen';
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        btn.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
+        btn.title = active ? 'Exit fullscreen' : 'Enter fullscreen';
+      }
+
+      btn.addEventListener('click', function () {
+        var p = isFsActive() ? exitFs() : requestFs(root);
+        if (p && typeof p.catch === 'function') {
+          p.catch(function () {
+            /* user gesture denied or policy block — leave UI as-is */
+          });
+        }
+      });
+
+      document.addEventListener('fullscreenchange', syncUi);
+      document.addEventListener('webkitfullscreenchange', syncUi);
+      document.addEventListener('mozfullscreenchange', syncUi);
+      document.addEventListener('MSFullscreenChange', syncUi);
+
+      syncUi();
+    })();
+  </script>
 </body>
 </html>

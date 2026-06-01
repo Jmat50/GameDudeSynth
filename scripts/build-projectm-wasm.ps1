@@ -108,18 +108,35 @@ Invoke-GitClone "https://github.com/projectM-visualizer/presets-milkdrop-texture
 Get-ChildItem -Path $TextureRepo -Recurse -Include *.jpg,*.png,*.bmp -ErrorAction SilentlyContinue |
     ForEach-Object { Copy-Item $_.FullName -Destination $TexturesDir -Force -ErrorAction SilentlyContinue }
 
+$manifestSource = Join-Path $RepoRoot "scripts\projectm-preset-manifest.txt"
+if (-not (Test-Path $manifestSource)) {
+    throw "Missing curated preset manifest: $manifestSource (run: python scripts/generate-preset-manifest.py)"
+}
+
 $manifestPath = Join-Path $PresetsStage "presets.manifest"
-$manifestLines = @("# GameDudeSynth curated projectM presets", "# One virtual path per line (under /presets)")
+$manifestLines = @()
 $count = 0
-Get-ChildItem -Path $CreamRepo -Recurse -Filter "*.milk" | Sort-Object Name | ForEach-Object {
+Get-Content $manifestSource | ForEach-Object {
+    $line = $_.Trim()
+    if (-not $line -or $line.StartsWith('#')) { return }
     if ($count -ge $MaxPresets) { return }
-    $destName = "preset_{0:D3}_{1}" -f $count, $_.Name
-    Copy-Item $_.FullName -Destination (Join-Path $PresetsStage $destName) -Force
+    $src = Join-Path $CreamRepo ($line -replace '/', '\')
+    if (-not (Test-Path -LiteralPath $src)) {
+        throw "Preset not found in cream repo: $line"
+    }
+    $baseName = [System.IO.Path]::GetFileName($src)
+    $destName = "preset_{0:D3}_{1}" -f $count, $baseName
+    Copy-Item -LiteralPath $src -Destination (Join-Path $PresetsStage $destName) -Force
     $manifestLines += "/presets/$destName"
     $count++
 }
-$manifestLines | Set-Content -Path $manifestPath -Encoding utf8
-Write-Host "Staged $count presets + textures"
+if ($count -eq 0) {
+    throw "Curated preset manifest is empty: $manifestSource"
+}
+# UTF-8 without BOM so Emscripten manifest parsing does not treat header lines as presets.
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllLines($manifestPath, $manifestLines, $utf8NoBom)
+Write-Host "Staged $count curated presets + textures"
 
 # 4. Bridge
 Ensure-Dir $BridgeBuild

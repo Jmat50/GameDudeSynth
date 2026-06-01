@@ -38,6 +38,8 @@ Hard-refresh the browser (`Ctrl+Shift+R`) after rebuilding bundles.
 - Static fallback: `npm run demos:manifest` writes `public/demos/manifest.json`
 - Console shell vendored from [gameboycss](https://github.com/ManzDev/gameboycss) by ManzDev (ISC)
 - Background visualizer: [projectM](https://github.com/projectM-visualizer/projectm) (LGPL-2.1+) — build once with `.\scripts\build-projectm-wasm.ps1` (see `public/vendor/projectm/README.md`)
+- Visualizer help: [docs/VISUALIZER.md](docs/VISUALIZER.md) (what **Viz / Preset / Dim** mean)
+- Bundled preset catalog: [docs/PRESETS.md](docs/PRESETS.md) (all Milkdrop presets in the WASM bundle)
 
 ## Project layout
 

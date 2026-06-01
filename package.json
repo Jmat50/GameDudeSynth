@@ -15,12 +15,15 @@
     "process:midi": "npx vite-node scripts/process-local-midi-v2.ts",
     "test:track-analysis": "npx vite-node scripts/test-track-analysis.ts",
     "test:preview-window": "npx vite-node scripts/test-preview-window.ts",
-    "test:viz-controller": "node scripts/test-viz-controller.mjs"
+    "test:viz-controller": "node scripts/test-viz-controller.mjs",
+    "presets:docs": "node scripts/generate-preset-docs.mjs",
+    "verify:presets": "node scripts/verify-projectm-presets.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "esbuild": "^0.25.0",
     "node-web-audio-api": "^2.0.0",
+    "playwright": "^1.50.1",
     "typescript": "^5.0.0",
     "vite": "^5.0.0"
   },

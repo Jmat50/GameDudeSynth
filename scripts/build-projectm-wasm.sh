@@ -50,17 +50,34 @@ TEXTURE_REPO="$BUILD_ROOT/presets-textures"
 [[ -d "$TEXTURE_REPO/.git" ]] || git clone --depth 1 https://github.com/projectM-visualizer/presets-milkdrop-texture-pack.git "$TEXTURE_REPO"
 find "$TEXTURE_REPO" -type f \( -iname '*.jpg' -o -iname '*.png' -o -iname '*.bmp' \) -exec cp {} "$PRESETS_STAGE/textures/" \; 2>/dev/null || true
 
+MANIFEST_SOURCE="$REPO_ROOT/scripts/projectm-preset-manifest.txt"
 MANIFEST="$PRESETS_STAGE/presets.manifest"
-echo "# GameDudeSynth curated projectM presets" >"$MANIFEST"
+if [[ ! -f "$MANIFEST_SOURCE" ]]; then
+  echo "Missing curated preset manifest: $MANIFEST_SOURCE" >&2
+  exit 1
+fi
+: >"$MANIFEST"
 count=0
-while IFS= read -r -d '' milk; do
+while IFS= read -r line || [[ -n "$line" ]]; do
+  line="${line%%#*}"
+  line="$(echo "$line" | xargs)"
+  [[ -z "$line" ]] && continue
   [[ $count -ge $MAX_PRESETS ]] && break
-  base="$(basename "$milk")"
+  src="$CREAM_REPO/$line"
+  if [[ ! -f "$src" ]]; then
+    echo "Preset not found in cream repo: $line" >&2
+    exit 1
+  fi
+  base="$(basename "$line")"
   dest="preset_$(printf '%03d' "$count")_${base}"
-  cp "$milk" "$PRESETS_STAGE/$dest"
+  cp "$src" "$PRESETS_STAGE/$dest"
   echo "/presets/$dest" >>"$MANIFEST"
   count=$((count + 1))
-done < <(find "$CREAM_REPO" -name '*.milk' -print0 | sort -z)
+done <"$MANIFEST_SOURCE"
+if [[ $count -eq 0 ]]; then
+  echo "Curated preset manifest is empty: $MANIFEST_SOURCE" >&2
+  exit 1
+fi
 
 mkdir -p "$BRIDGE_BUILD"
 pushd "$BRIDGE_BUILD"
