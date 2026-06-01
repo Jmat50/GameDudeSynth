@@ -4191,6 +4191,8 @@
       this._presetLastSwitchMs = now;
       this._presetBusy = true;
       this._setPresetButtonsDisabled(true);
+      const shouldResume = this.enabled && this._ready && this.audioActive;
+      this._stopLoop();
       try {
         const fn = direction < 0 ? "pm_prev_preset" : "pm_next_preset";
         this._module.ccall(fn, null, [], []);
@@ -4205,6 +4207,15 @@
           this._presetBusy = false;
           this._setPresetButtonsDisabled(!this.enabled);
           if (!this.enabled) return;
+          if (shouldResume) {
+            requestAnimationFrame(() => {
+              try {
+                this._module?.ccall("pm_render_frame", null, [], []);
+              } catch {
+              }
+              this._startLoop();
+            });
+          }
           if (this._presetQueueDir !== 0) {
             const queuedDir = this._presetQueueDir;
             this._presetQueueDir = 0;

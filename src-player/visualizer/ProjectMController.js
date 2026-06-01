@@ -325,6 +325,10 @@ export class ProjectMController {
 
     this._presetBusy = true;
     this._setPresetButtonsDisabled(true);
+
+    // Prevent preset load/render re-entrancy: pause rendering during the switch.
+    const shouldResume = this.enabled && this._ready && this.audioActive;
+    this._stopLoop();
     try {
       const fn = direction < 0 ? 'pm_prev_preset' : 'pm_next_preset';
       this._module.ccall(fn, null, [], []);
@@ -339,6 +343,18 @@ export class ProjectMController {
         this._presetBusy = false;
         this._setPresetButtonsDisabled(!this.enabled);
         if (!this.enabled) return;
+
+        // Allow one settle frame before resuming the render loop.
+        if (shouldResume) {
+          requestAnimationFrame(() => {
+            try {
+              this._module?.ccall('pm_render_frame', null, [], []);
+            } catch {
+              /* ignore */
+            }
+            this._startLoop();
+          });
+        }
         if (this._presetQueueDir !== 0) {
           const queuedDir = this._presetQueueDir;
           this._presetQueueDir = 0;

@@ -25,22 +25,30 @@ async function testSetAudioActiveGate() {
 async function testPresetQueueingAndCooldown() {
   const realSetTimeout = globalThis.setTimeout;
   const realClearTimeout = globalThis.clearTimeout;
+  const realRaf = globalThis.requestAnimationFrame;
   const pendingTimers = [];
   globalThis.setTimeout = (fn) => {
     pendingTimers.push(fn);
     return pendingTimers.length;
   };
   globalThis.clearTimeout = () => {};
+  globalThis.requestAnimationFrame = (cb) => {
+    cb();
+    return 0;
+  };
 
   const ctrl = Object.create(ProjectMController.prototype);
   ctrl.enabled = true;
   ctrl._ready = true;
+  ctrl.audioActive = true;
   ctrl._presetButtons = [{ disabled: false }, { disabled: false }];
   ctrl._presetUnlockTimer = null;
   ctrl._presetLastSwitchMs = -1e9;
   ctrl._presetQueueDir = 0;
   ctrl._presetBusy = false;
   ctrl._setError = () => {};
+  ctrl._stopLoop = () => {};
+  ctrl._startLoop = () => {};
   const called = [];
   ctrl._module = {
     ccall: (name) => {
@@ -59,12 +67,13 @@ async function testPresetQueueingAndCooldown() {
 
   assert.deepEqual(
     called,
-    ['pm_next_preset', 'pm_prev_preset'],
-    'queued preset request should run after unlock timer',
+    ['pm_next_preset', 'pm_render_frame', 'pm_prev_preset', 'pm_render_frame'],
+    'queued preset request should run after unlock timer (with settle renders)',
   );
 
   globalThis.setTimeout = realSetTimeout;
   globalThis.clearTimeout = realClearTimeout;
+  globalThis.requestAnimationFrame = realRaf;
 }
 
 async function testFeedPcmBufferReuse() {
