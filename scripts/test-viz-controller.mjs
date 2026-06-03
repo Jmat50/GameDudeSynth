@@ -94,6 +94,38 @@ async function testFeedPcmBufferReuse() {
   assert.equal(ctrl._pcmPtr, firstPtr, 'PCM pointer should be reused for same sized buffer');
 }
 
+async function testVibeScopedPresetNavigation() {
+  const ctrl = Object.create(ProjectMController.prototype);
+  ctrl.enabled = true;
+  ctrl._ready = true;
+  ctrl.audioActive = true;
+  ctrl._presetBusy = false;
+  ctrl._presetQueueDir = 0;
+  ctrl._presetLastSwitchMs = -1e9;
+  ctrl._presetUnlockTimer = null;
+  ctrl._presetManifest = [
+    'A/first.milk',
+    'Dancer/second.milk',
+    'Dancer/third.milk',
+    'B/fourth.milk',
+  ];
+  ctrl._vibeSelect = { value: 'Dancer' };
+  ctrl._module = {
+    ccall: (name, ret, args, vals) => {
+      if (name === 'pm_get_preset_index') return 1;
+      if (name === 'pm_get_preset_path') return 'Dancer/second.milk';
+      return 0;
+    },
+  };
+  let selected = null;
+  ctrl._selectPresetByPath = async (path) => {
+    selected = path;
+  };
+
+  await ctrl._changePreset(1);
+  assert.equal(selected, 'Dancer/third.milk', 'Preset navigation should move within selected vibe');
+}
+
 async function run() {
   await testSetAudioActiveGate();
   await testPresetQueueingAndCooldown();

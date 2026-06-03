@@ -4274,6 +4274,22 @@
         console.warn("[projectM] _selectPresetByPath failed", err);
       }
     }
+    _getSelectedVibePresets() {
+      if (!this._presetManifest?.length) return null;
+      const vibe = this._vibeSelect?.value ?? "__all__";
+      if (vibe === "__all__") {
+        return this._presetManifest;
+      }
+      return this._presetManifest.filter((path) => path.startsWith(vibe + "/"));
+    }
+    _getCurrentModulePresetPath() {
+      if (!this._module) return null;
+      try {
+        return this._module.ccall("pm_get_preset_path", "string", ["number"], [this._module.ccall("pm_get_preset_index", "number", [], [])]);
+      } catch {
+        return null;
+      }
+    }
     _setError(message) {
       this._error = message;
       if (this._errorEl) {
@@ -4402,7 +4418,7 @@
         this._presetLabelEl.textContent = "Preset \u2014";
       }
     }
-    _changePreset(direction) {
+    async _changePreset(direction) {
       if (!this._module || !this._ready || !this.enabled) return;
       const now = performance.now();
       const elapsed = now - this._presetLastSwitchMs;
@@ -4428,6 +4444,28 @@
       const shouldResume = this.enabled && this._ready && this.audioActive;
       this._stopLoop();
       try {
+        const selectedVibe = this._vibeSelect?.value ?? "__all__";
+        let currentPath = null;
+        if (selectedVibe !== "__all__") {
+          currentPath = this._getCurrentModulePresetPath();
+        }
+        if (selectedVibe !== "__all__" && currentPath) {
+          const candidates = this._getSelectedVibePresets();
+          if (candidates?.length) {
+            const normalizedCurrent = currentPath.replace(/^\/+/, "");
+            let index = candidates.findIndex(
+              (entry) => entry === normalizedCurrent || normalizedCurrent.endsWith(entry) || entry.endsWith(normalizedCurrent) || normalizedCurrent.includes("/" + entry) || entry.includes("/" + normalizedCurrent)
+            );
+            if (index === -1) {
+              index = candidates.findIndex((entry) => normalizedCurrent.includes(entry));
+            }
+            if (index !== -1) {
+              const nextIndex = (index + direction + candidates.length) % candidates.length;
+              await this._selectPresetByPath(candidates[nextIndex]);
+              return;
+            }
+          }
+        }
         const fn = direction < 0 ? "pm_prev_preset" : "pm_next_preset";
         this._module.ccall(fn, null, [], []);
       } catch (err) {
