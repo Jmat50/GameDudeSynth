@@ -12,6 +12,7 @@ const required = [
   { name: 'projectm.js', minBytes: 50_000 },
   { name: 'projectm.wasm', minBytes: 500_000 },
   { name: 'projectm.data', minBytes: 1_000_000 },
+  { name: 'bundled-presets.json', minBytes: 500 },
 ];
 
 let failed = false;

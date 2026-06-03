@@ -7,32 +7,27 @@ The WAV player page (`gamedude-player.html`) can show a full-screen **Milkdrop-s
 These are **not** MIDI export settings and not per-track audio settings.
 
 | Control | What it does |
-|---------|----------------|
+|---------|--------------|
 | **Viz** | Turns the background visualizer on or off. |
-| **◀ Preset / Preset ▶** | Cycles through bundled **Milkdrop preset** files (`.milk`). Each preset is a different audio-reactive visual shader. |
+| **Vibe** | Chooses a visual style and randomly loads one bundled Milkdrop shader from that style. |
 | **Dim** | Sets how strong the background appears (opacity over the page). Lower = more subtle. |
 
-Presets still **react to the music** while playing (beat, level, spectrum). Only the **preset file** changes when you press the arrows—not separate “settings” inside a preset.
+Vibes still **react to the music** while playing (beat, level, spectrum). Selecting a new **Vibe** picks a random bundled visual from that category; there are no previous/next preset controls.
 
-## Verifying loaded presets
+## Verifying loaded Vibes
 
 1. Open the player over HTTP (local server or GitHub Pages), not `file://`.
-2. Enable **Viz** and open the browser developer console.
-3. Look for lines like:
+2. Enable **Viz** and choose entries from the **Vibe** dropdown.
+3. Run `npm run verify:presets` for a headless browser check that each Vibe produces non-flat canvas output.
 
-```text
-[projectM] presets loaded: 40, current=0
-[projectM] preset[0]=/presets/preset_000_...
-```
-
-The full catalog with categories is in [PRESETS.md](./PRESETS.md).
+The full bundled catalog with categories is in [PRESETS.md](./PRESETS.md).
 
 ## Building / updating presets
 
-Presets are curated in [`scripts/projectm-preset-manifest.txt`](../scripts/projectm-preset-manifest.txt) and baked into `public/vendor/projectm/projectm.data` when you run:
+Presets are curated in [`scripts/projectm-preset-manifest.txt`](../scripts/projectm-preset-manifest.txt), mirrored to `public/vendor/projectm/bundled-presets.json` for the Vibe dropdown, and baked into `public/vendor/projectm/projectm.data` when you run:
 
 ```powershell
 .\scripts\build-projectm-wasm.ps1
 ```
 
-See [README.md](../README.md) — External Project Credits.
+See [README.md](../README.md) - External Project Credits.

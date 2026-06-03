@@ -22,58 +22,103 @@ async function testSetAudioActiveGate() {
   assert.equal(stopped, 1, 'render loop should stop when inactive');
 }
 
-async function testPresetQueueingAndCooldown() {
-  const realSetTimeout = globalThis.setTimeout;
-  const realClearTimeout = globalThis.clearTimeout;
-  const realRaf = globalThis.requestAnimationFrame;
-  const pendingTimers = [];
-  globalThis.setTimeout = (fn) => {
-    pendingTimers.push(fn);
-    return pendingTimers.length;
-  };
-  globalThis.clearTimeout = () => {};
-  globalThis.requestAnimationFrame = (cb) => {
-    cb();
-    return 0;
-  };
-
+async function testRuntimeCatalogUsesCuratedVibes() {
   const ctrl = Object.create(ProjectMController.prototype);
-  ctrl.enabled = true;
   ctrl._ready = true;
-  ctrl.audioActive = true;
-  ctrl._presetButtons = [{ disabled: false }, { disabled: false }];
-  ctrl._presetUnlockTimer = null;
-  ctrl._presetLastSwitchMs = -1e9;
-  ctrl._presetQueueDir = 0;
-  ctrl._presetBusy = false;
-  ctrl._setError = () => {};
-  ctrl._stopLoop = () => {};
-  ctrl._startLoop = () => {};
-  const called = [];
+  ctrl._presetManifest = [
+    'Particles/Points/one.milk',
+    'Dancer/Glowsticks/two.milk',
+    'Dancer/Whirl/three.milk',
+    'Waveform/Spectrum/four.milk',
+  ];
+  const runtimePaths = [
+    '/presets/preset_000_one.milk',
+    '/presets/preset_001_two.milk',
+    '/presets/preset_002_three.milk',
+    '/presets/preset_003_four.milk',
+  ];
   ctrl._module = {
-    ccall: (name) => {
-      called.push(name);
+    ccall: (name, _ret, _args, values) => {
+      if (name === 'pm_get_preset_count') return runtimePaths.length;
+      if (name === 'pm_get_preset_path') return runtimePaths[values[0]];
+      return 0;
     },
   };
 
-  ctrl._changePreset(1);
-  ctrl._changePreset(-1); // queues while busy
-  assert.deepEqual(called, ['pm_next_preset'], 'first preset call should fire once');
-  assert.equal(ctrl._presetQueueDir, -1, 'second direction should queue');
-
-  while (pendingTimers.length) {
-    pendingTimers.shift()?.();
-  }
+  ctrl._syncRuntimePresets();
 
   assert.deepEqual(
-    called,
-    ['pm_next_preset', 'pm_render_frame', 'pm_prev_preset', 'pm_render_frame'],
-    'queued preset request should run after unlock timer (with settle renders)',
+    ctrl._runtimePresets.map((preset) => preset.vibe),
+    ['Particles', 'Dancer', 'Dancer', 'Waveform'],
+    'runtime presets should inherit Vibe categories from the curated manifest',
   );
+}
 
-  globalThis.setTimeout = realSetTimeout;
-  globalThis.clearTimeout = realClearTimeout;
-  globalThis.requestAnimationFrame = realRaf;
+async function testVibeSelectionRandomizesWithinSelectedStyle() {
+  const ctrl = Object.create(ProjectMController.prototype);
+  ctrl._module = {};
+  ctrl._ready = true;
+  ctrl._vibeBusy = false;
+  ctrl._vibeSelect = { value: 'Dancer' };
+  ctrl._runtimePresets = [
+    { index: 0, vibe: 'Particles' },
+    { index: 1, vibe: 'Dancer' },
+    { index: 2, vibe: 'Dancer' },
+    { index: 3, vibe: 'Waveform' },
+  ];
+  ctrl._getCurrentPresetIndex = () => 1;
+  ctrl._random = () => 0.99;
+  let selectedIndex = null;
+  ctrl._selectRuntimePreset = async (index) => {
+    selectedIndex = index;
+  };
+
+  await ctrl._applySelectedVibe({ forceNew: true });
+
+  assert.equal(
+    selectedIndex,
+    2,
+    'selecting a Vibe should choose a different random preset from that Vibe when possible',
+  );
+}
+
+async function testRuntimePresetJumpUsesShortestDirection() {
+  const ctrl = Object.create(ProjectMController.prototype);
+  ctrl._ready = true;
+  ctrl.enabled = true;
+  ctrl.audioActive = false;
+  ctrl._raf = null;
+  ctrl.hostEl = { dataset: {} };
+  ctrl._runtimePresets = [
+    { index: 0, vibe: 'A' },
+    { index: 1, vibe: 'B' },
+    { index: 2, vibe: 'C' },
+    { index: 3, vibe: 'D' },
+    { index: 4, vibe: 'E' },
+  ];
+  const calls = [];
+  ctrl._module = {
+    ccall: (name) => {
+      calls.push(name);
+      if (name === 'pm_get_preset_count') return 5;
+      if (name === 'pm_get_preset_index') return 4;
+      return 0;
+    },
+  };
+
+  await ctrl._selectRuntimePreset(1);
+
+  assert.deepEqual(
+    calls,
+    [
+      'pm_get_preset_count',
+      'pm_get_preset_index',
+      'pm_next_preset',
+      'pm_next_preset',
+      'pm_render_frame',
+    ],
+    'runtime preset jumps should use the shortest internal route',
+  );
 }
 
 async function testFeedPcmBufferReuse() {
@@ -91,44 +136,14 @@ async function testFeedPcmBufferReuse() {
   ctrl._feedPcm(pcm, 128);
   const firstPtr = ctrl._pcmPtr;
   ctrl._feedPcm(pcm, 128);
-  assert.equal(ctrl._pcmPtr, firstPtr, 'PCM pointer should be reused for same sized buffer');
-}
-
-async function testVibeScopedPresetNavigation() {
-  const ctrl = Object.create(ProjectMController.prototype);
-  ctrl.enabled = true;
-  ctrl._ready = true;
-  ctrl.audioActive = true;
-  ctrl._presetBusy = false;
-  ctrl._presetQueueDir = 0;
-  ctrl._presetLastSwitchMs = -1e9;
-  ctrl._presetUnlockTimer = null;
-  ctrl._presetManifest = [
-    'A/first.milk',
-    'Dancer/second.milk',
-    'Dancer/third.milk',
-    'B/fourth.milk',
-  ];
-  ctrl._vibeSelect = { value: 'Dancer' };
-  ctrl._module = {
-    ccall: (name, ret, args, vals) => {
-      if (name === 'pm_get_preset_index') return 1;
-      if (name === 'pm_get_preset_path') return 'Dancer/second.milk';
-      return 0;
-    },
-  };
-  let selected = null;
-  ctrl._selectPresetByPath = async (path) => {
-    selected = path;
-  };
-
-  await ctrl._changePreset(1);
-  assert.equal(selected, 'Dancer/third.milk', 'Preset navigation should move within selected vibe');
+  assert.equal(firstPtr, ctrl._pcmPtr, 'PCM pointer should be reused for same sized buffer');
 }
 
 async function run() {
   await testSetAudioActiveGate();
-  await testPresetQueueingAndCooldown();
+  await testRuntimeCatalogUsesCuratedVibes();
+  await testVibeSelectionRandomizesWithinSelectedStyle();
+  await testRuntimePresetJumpUsesShortestDirection();
   await testFeedPcmBufferReuse();
   console.log('All visualizer controller checks passed.');
 }

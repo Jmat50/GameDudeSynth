@@ -10,7 +10,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'dist', 'github-pages');
 const siteRoot = join(out, 'GameDudeSynth');
 
-const PROJECTM_FILES = ['projectm.js', 'projectm.wasm', 'projectm.data'];
+const PROJECTM_FILES = ['projectm.js', 'projectm.wasm', 'projectm.data', 'bundled-presets.json'];
 
 function assertProjectMBundle() {
   const vendorDir = join(root, 'public', 'vendor', 'projectm');

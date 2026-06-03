@@ -38,7 +38,7 @@ Hard-refresh the browser (`Ctrl+Shift+R`) after rebuilding bundles.
 - Static fallback: `npm run demos:manifest` writes `public/demos/manifest.json`
 - Console shell vendored from [gameboycss](https://github.com/ManzDev/gameboycss) by ManzDev (ISC)
 - Background visualizer: [projectM](https://github.com/projectM-visualizer/projectm) (LGPL-2.1+) — build once with `.\scripts\build-projectm-wasm.ps1` (see `public/vendor/projectm/README.md`)
-- Visualizer help: [docs/VISUALIZER.md](docs/VISUALIZER.md) (what **Viz / Preset / Dim** mean)
+- Visualizer help: [docs/VISUALIZER.md](docs/VISUALIZER.md) (what **Viz / Vibe / Dim** mean)
 - Bundled preset catalog: [docs/PRESETS.md](docs/PRESETS.md) (all Milkdrop presets in the WASM bundle)
 
 ## Project layout
@@ -52,7 +52,7 @@ Hard-refresh the browser (`Ctrl+Shift+R`) after rebuilding bundles.
 | `vendor/gameboycss/` | Vendored gameboycss console shell (ISC, ManzDev) |
 | `src-v2/` | Synthesis engine source (APU, MIDI mapping, offline render) |
 | `src-player/` | WAV player menu screen + catalog + projectM visualizer |
-| `public/vendor/projectm/` | Vendored projectM WASM (`projectm.js`, `.wasm`, `.data`) |
+| `public/vendor/projectm/` | Vendored projectM WASM (`projectm.js`, `.wasm`, `.data`) + Vibe manifest |
 | `vendor/projectm-bridge/` | Emscripten bridge source (PCM feed from Web Audio) |
 | `public/demos/` | Drop folder for player WAV tracks |
 | `server_gui.py` | Local static HTTP server + `/demos/manifest.json` |

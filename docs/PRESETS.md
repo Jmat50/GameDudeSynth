@@ -2,7 +2,7 @@
 
 GameDudeSynth ships **40** curated presets from [presets-cream-of-the-crop](https://github.com/projectM-visualizer/presets-cream-of-the-crop), staged into `public/vendor/projectm/projectm.data`.
 
-Use **◀ Preset / Preset ▶** on the player page to cycle. Index **0** is the first preset after enabling Viz.
+Use the **Vibe** dropdown on the player page to choose a visual style. Each selection randomly loads one bundled preset from that Vibe.
 
 See [VISUALIZER.md](./VISUALIZER.md) for what the controls mean.
 
@@ -63,4 +63,4 @@ After changing [`scripts/projectm-preset-manifest.txt`](../scripts/projectm-pres
 .\scripts\build-projectm-wasm.ps1 -SkipEmsdkInstall
 ```
 
-Then cycle presets on `gamedude-player.html` and update the **Works in browser** column above.
+Then run `npm run verify:presets` and update the **Works in browser** column above.

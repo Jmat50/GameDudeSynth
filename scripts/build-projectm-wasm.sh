@@ -43,6 +43,7 @@ emmake cmake --build . --config Release
 emmake cmake --install .
 popd
 
+rm -rf "$PRESETS_STAGE"
 mkdir -p "$PRESETS_STAGE/textures"
 CREAM_REPO="$BUILD_ROOT/presets-cream"
 TEXTURE_REPO="$BUILD_ROOT/presets-textures"
@@ -58,6 +59,7 @@ if [[ ! -f "$MANIFEST_SOURCE" ]]; then
 fi
 : >"$MANIFEST"
 count=0
+bundle_lines=()
 while IFS= read -r line || [[ -n "$line" ]]; do
   line="${line%%#*}"
   line="$(echo "$line" | xargs)"
@@ -72,6 +74,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   dest="preset_$(printf '%03d' "$count")_${base}"
   cp "$src" "$PRESETS_STAGE/$dest"
   echo "/presets/$dest" >>"$MANIFEST"
+  bundle_lines+=("$line")
   count=$((count + 1))
 done <"$MANIFEST_SOURCE"
 if [[ $count -eq 0 ]]; then
@@ -91,4 +94,15 @@ popd
 
 mkdir -p "$OUT_DIR"
 cp "$BRIDGE_BUILD/projectm.js" "$BRIDGE_BUILD/projectm.wasm" "$BRIDGE_BUILD/projectm.data" "$OUT_DIR/"
+{
+  echo "["
+  for ((index = 0; index < ${#bundle_lines[@]}; index++)); do
+    escaped="${bundle_lines[$index]//\\/\\\\}"
+    escaped="${escaped//\"/\\\"}"
+    comma=","
+    [[ $index -eq $((${#bundle_lines[@]} - 1)) ]] && comma=""
+    printf '  "%s"%s\n' "$escaped" "$comma"
+  done
+  echo "]"
+} >"$OUT_DIR/bundled-presets.json"
 echo "Built $count presets → $OUT_DIR"

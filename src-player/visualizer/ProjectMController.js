@@ -1,8 +1,6 @@
 const STORAGE_ENABLED = 'gamedude.vizEnabled';
 const STORAGE_OPACITY = 'gamedude.vizOpacity';
-const PRESET_MIN_INTERVAL_MS = 170;
-const PRESET_UNLOCK_DELAY_MS = 230;
-const PRESET_DEFER_FLOOR_MS = 20;
+const STORAGE_VIBE = 'gamedude.vibe';
 
 /** Resolve vendor URLs from the page URL (works on GitHub Pages subpaths). */
 function vendorBaseUrl() {
@@ -29,6 +27,46 @@ function resolveProjectMFactory() {
   );
 }
 
+function normalizePresetPath(path) {
+  return String(path ?? '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '');
+}
+
+function parsePresetManifest(text) {
+  try {
+    const json = JSON.parse(text);
+    const entries = Array.isArray(json) ? json : json?.presets;
+    if (Array.isArray(entries)) {
+      return entries
+        .map((entry) =>
+          normalizePresetPath(
+            typeof entry === 'string' ? entry : entry?.sourcePath ?? entry?.path ?? '',
+          ),
+        )
+        .filter(Boolean);
+    }
+  } catch {
+    /* fall through to text parsing */
+  }
+
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'))
+    .map(normalizePresetPath)
+    .filter(Boolean);
+}
+
+function sourceVibe(sourcePath) {
+  const normalized = normalizePresetPath(sourcePath);
+  const [topLevel] = normalized.split('/');
+  return topLevel && !topLevel.startsWith('preset_') && topLevel !== 'presets'
+    ? topLevel
+    : 'Visuals';
+}
+
 export class ProjectMController {
   constructor(hostEl, controlsEl) {
     this.hostEl = hostEl;
@@ -41,29 +79,26 @@ export class ProjectMController {
     this._raf = null;
     this._resizeObserver = null;
     this._statusEl = null;
+    this._errorEl = null;
     this._error = null;
     this._ready = false;
     this._pcmPtr = 0;
     this._pcmCapacity = 0;
-    this._presetButtons = [];
-    this._presetUnlockTimer = null;
-    this._presetLastSwitchMs = 0;
-    this._presetQueueDir = 0;
-    this._presetBusy = false;
-    this._presetLabelEl = null;
-    this._presetManifest = null;
+    this._presetManifest = [];
+    this._runtimePresets = [];
     this._vibeSelect = null;
-    this._autoShuffle = false;
-    this._rmsHistory = [];
-    this._lastBeatMs = 0;
+    this._vibeBusy = false;
+    this._queuedVibeApply = false;
+    this._random = Math.random;
     this._wasmBase = vendorBaseUrl();
     this._scriptUrl = new URL('projectm.js', this._wasmBase).href;
+
     document.documentElement.style.setProperty('--viz-opacity', String(this.opacity));
     this._buildControls();
     this._loadPresetManifest().catch((err) => {
       console.warn('[projectM] preset manifest load failed', err);
     });
-    this._applyEnabledState(false);
+    this._applyEnabledState();
 
     if (!supportsWebGL2()) {
       this._setError('WebGL2 is required for Milkdrop visuals.');
@@ -104,7 +139,9 @@ export class ProjectMController {
     if (!this._module) {
       await this._loadModule();
     }
-    this._setPresetButtonsDisabled(!this._ready);
+    if (this._ready) {
+      await this._applySelectedVibe({ forceNew: true });
+    }
     if (this._ready && this.audioActive) {
       this._startLoop();
     }
@@ -115,13 +152,6 @@ export class ProjectMController {
     this.enabled = false;
     localStorage.setItem(STORAGE_ENABLED, 'false');
     this.hostEl.classList.add('is-disabled');
-    this._setPresetButtonsDisabled(true);
-    this._presetQueueDir = 0;
-    this._presetBusy = false;
-    if (this._presetUnlockTimer) {
-      clearTimeout(this._presetUnlockTimer);
-      this._presetUnlockTimer = null;
-    }
     this._stopLoop();
     this.onEnabledChange?.(false);
   }
@@ -147,42 +177,24 @@ export class ProjectMController {
       }
     });
 
-    const presetRow = document.createElement('div');
-    presetRow.className = 'viz-controls-row';
-    const prevBtn = document.createElement('button');
-    prevBtn.type = 'button';
-    prevBtn.className = 'viz-btn';
-    prevBtn.textContent = '◀ Preset';
-    prevBtn.addEventListener('click', () => this._changePreset(-1));
+    const vibeRow = document.createElement('label');
+    vibeRow.className = 'viz-controls-row';
+    const vibeLabel = document.createElement('span');
+    vibeLabel.className = 'viz-label';
+    vibeLabel.textContent = 'Vibe';
 
-    const nextBtn = document.createElement('button');
-    nextBtn.type = 'button';
-    nextBtn.className = 'viz-btn';
-    nextBtn.textContent = 'Preset ▶';
-    nextBtn.addEventListener('click', () => this._changePreset(1));
-
-    this._presetButtons = [prevBtn, nextBtn];
-    this._setPresetButtonsDisabled(true);
-    // Vibe selector + shuffle (placed in the preset row for compact top-right controls)
     const vibeSelect = document.createElement('select');
     vibeSelect.className = 'viz-vibe-select';
     vibeSelect.disabled = true;
     vibeSelect.appendChild(new Option('Loading Vibes...', '__loading__'));
-    const vibeLabel = document.createElement('span');
-    vibeLabel.className = 'viz-label';
-    vibeLabel.textContent = 'Vibe';
-    const shuffleBtn = document.createElement('button');
-    shuffleBtn.type = 'button';
-    shuffleBtn.className = 'viz-btn';
-    shuffleBtn.textContent = 'Shuffle';
-    shuffleBtn.addEventListener('click', () => this._shufflePreset());
-    presetRow.append(prevBtn, vibeLabel, vibeSelect, shuffleBtn, nextBtn);
-
+    vibeSelect.addEventListener('change', () => {
+      localStorage.setItem(STORAGE_VIBE, vibeSelect.value);
+      this._applySelectedVibe({ forceNew: true }).catch((err) => {
+        this._setError(err?.message || 'Vibe switch failed');
+      });
+    });
+    vibeRow.append(vibeLabel, vibeSelect);
     this._vibeSelect = vibeSelect;
-
-    this._presetLabelEl = document.createElement('p');
-    this._presetLabelEl.className = 'viz-preset-label';
-    this._presetLabelEl.textContent = 'Preset —';
 
     const opacityRow = document.createElement('label');
     opacityRow.className = 'viz-controls-row';
@@ -201,28 +213,11 @@ export class ProjectMController {
     });
     opacityRow.appendChild(opacityInput);
 
-    // Auto-shuffle toggle
-    const autoRow = document.createElement('label');
-    autoRow.className = 'viz-controls-row';
-    autoRow.innerHTML = `
-      <span class="viz-label">Auto</span>
-      <input type="checkbox" class="viz-auto-toggle" id="viz-auto-toggle" />
-      <span class="viz-auto-text">Beat-shuffle</span>
-    `;
-    const autoToggle = autoRow.querySelector('#viz-auto-toggle');
-    this._autoShuffle = localStorage.getItem('gamedude.vizAutoShuffle') === 'true';
-    autoToggle.checked = this._autoShuffle;
-    autoToggle.addEventListener('change', () => {
-      this._autoShuffle = autoToggle.checked;
-      localStorage.setItem('gamedude.vizAutoShuffle', this._autoShuffle ? 'true' : 'false');
-    });
-    opacityRow.appendChild(autoRow);
-
     this._errorEl = document.createElement('p');
     this._errorEl.className = 'viz-error';
     this._errorEl.hidden = true;
 
-    this.controlsEl.append(toggleWrap, presetRow, this._presetLabelEl, opacityRow, this._errorEl);
+    this.controlsEl.append(toggleWrap, vibeRow, opacityRow, this._errorEl);
 
     if (this.enabled) {
       this.enable().catch((err) => this._setError(err.message));
@@ -230,153 +225,167 @@ export class ProjectMController {
   }
 
   async _loadPresetManifest() {
-    // Try known locations for a curated manifest (newline-separated or JSON)
     const candidates = [
-      new URL('public/vendor/projectm/presets/manifest.json', window.location.href).href,
-      new URL('public/vendor/projectm/presets/manifest.txt', window.location.href).href,
+      new URL('public/vendor/projectm/bundled-presets.json', window.location.href).href,
       new URL('scripts/projectm-preset-manifest.txt', window.location.href).href,
     ];
+
     for (const url of candidates) {
       try {
-        const res = await fetch(url);
-        if (!res.ok) continue;
-        const text = await res.text();
-        let entries = [];
-        try {
-          const json = JSON.parse(text);
-          if (Array.isArray(json)) entries = json;
-        } catch {
-          entries = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => l.replace(/^#.*$/, '').trim()).filter(Boolean);
-        }
+        const response = await fetch(url);
+        if (!response.ok) continue;
+        const entries = parsePresetManifest(await response.text());
         if (entries.length) {
           this._presetManifest = entries;
           this._buildVibeOptions(entries);
+          if (this._ready) {
+            this._syncRuntimePresets();
+            await this._applySelectedVibe({ forceNew: true });
+          }
           return;
         }
       } catch (err) {
         console.warn('[projectM] failed to load preset manifest', err);
       }
     }
-    // No manifest found — show default option set.
+
     this._buildVibeOptions([]);
   }
 
   _buildVibeOptions(entries) {
+    if (!this._vibeSelect) return;
+
     const groups = new Map();
-    for (const p of entries) {
-      const cat = p.split('/')[0] || 'Misc';
-      if (!groups.has(cat)) groups.set(cat, []);
-      groups.get(cat).push(p);
+    for (const entry of entries) {
+      const vibe = sourceVibe(entry);
+      groups.set(vibe, (groups.get(vibe) ?? 0) + 1);
     }
-    // Add "All" option
-    const sel = this._vibeSelect;
-    sel.innerHTML = '';
-    const optAll = document.createElement('option');
-    optAll.value = '__all__';
-    optAll.textContent = 'All (manifest)';
-    sel.appendChild(optAll);
-    for (const [cat] of groups) {
-      const opt = document.createElement('option');
-      opt.value = cat;
-      opt.textContent = cat;
-      sel.appendChild(opt);
+    if (!groups.size && this._runtimePresets.length) {
+      for (const preset of this._runtimePresets) {
+        groups.set(preset.vibe, (groups.get(preset.vibe) ?? 0) + 1);
+      }
     }
-    sel.addEventListener('change', () => {
-      localStorage.setItem('gamedude.vibe', sel.value);
-    });
-    const saved = localStorage.getItem('gamedude.vibe');
-    if (saved && [...sel.options].some((opt) => opt.value === saved)) {
-      sel.value = saved;
+
+    this._vibeSelect.innerHTML = '';
+    if (!groups.size) {
+      this._vibeSelect.appendChild(new Option('No Vibes Found', '__none__'));
+      this._vibeSelect.disabled = true;
+      return;
+    }
+
+    for (const [vibe, count] of groups) {
+      const option = document.createElement('option');
+      option.value = vibe;
+      option.textContent = count > 1 ? `${vibe} (${count})` : vibe;
+      this._vibeSelect.appendChild(option);
+    }
+
+    const saved = localStorage.getItem(STORAGE_VIBE);
+    if (saved && [...this._vibeSelect.options].some((option) => option.value === saved)) {
+      this._vibeSelect.value = saved;
     } else {
-      sel.value = '__all__';
+      this._vibeSelect.selectedIndex = 0;
+      localStorage.setItem(STORAGE_VIBE, this._vibeSelect.value);
     }
-    sel.disabled = false;
+    this._vibeSelect.disabled = false;
   }
 
-  async _shufflePreset() {
-    if (!this._module) return;
-    if (this._presetManifest && this._presetManifest.length) {
-      const vibe = this._vibeSelect?.value ?? '__all__';
-      let candidates = this._presetManifest;
-      if (vibe && vibe !== '__all__') {
-        candidates = candidates.filter((p) => p.startsWith(vibe + '/'));
-      }
-      if (!candidates.length) candidates = this._presetManifest;
-      const pick = candidates[Math.floor(Math.random() * candidates.length)];
-      await this._selectPresetByPath(pick);
-    } else {
-      // Fallback: advance a random number of steps
-      const count = this._module.ccall('pm_get_preset_count', 'number', [], []);
-      if (!count) return;
-      const steps = Math.floor(Math.random() * Math.min(20, count));
-      for (let i = 0; i < steps; i++) {
-        this._module.ccall('pm_next_preset', null, [], []);
-      }
-      this._updatePresetLabel();
-    }
-  }
+  _syncRuntimePresets() {
+    if (!this._module || !this._ready) return;
 
-  async _selectPresetByPath(relPath) {
-    if (!this._module) return;
-    try {
-      const count = this._module.ccall('pm_get_preset_count', 'number', [], []);
-      if (!count) return;
-      // Try to find exact match by comparing trailing segments
-      const normalized = relPath.replace(/^\/+/, '');
-      for (let i = 0; i < count; i++) {
-        const path = this._module.ccall('pm_get_preset_path', 'string', ['number'], [i]);
-        if (!path) continue;
-        if (path.endsWith(normalized) || path.includes('/' + normalized)) {
-          // compute delta from current index
-          const cur = this._module.ccall('pm_get_preset_index', 'number', [], []);
-          let delta = i - cur;
-          // choose shortest direction
-          if (Math.abs(delta) > count / 2) {
-            if (delta > 0) delta = delta - count;
-            else delta = delta + count;
-          }
-          const fn = delta >= 0 ? 'pm_next_preset' : 'pm_prev_preset';
-          const steps = Math.abs(delta);
-          for (let s = 0; s < steps; s++) {
-            this._module.ccall(fn, null, [], []);
-          }
-          this._updatePresetLabel();
-          return;
-        }
-      }
-      // Not found — try brute force rotations up to count
-      for (let i = 0; i < count; i++) {
-        const path = this._module.ccall('pm_get_preset_path', 'string', ['number'], [i]);
-        if (path && path.includes(normalized)) {
-          // rotate to that index (naive)
-          const cur = this._module.ccall('pm_get_preset_index', 'number', [], []);
-          while (this._module.ccall('pm_get_preset_index', 'number', [], []) !== i) {
-            this._module.ccall('pm_next_preset', null, [], []);
-          }
-          this._updatePresetLabel();
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn('[projectM] _selectPresetByPath failed', err);
+    const runtimePresets = [];
+    const count = this._module.ccall('pm_get_preset_count', 'number', [], []);
+    for (let index = 0; index < count; index++) {
+      const runtimePath = this._module.ccall('pm_get_preset_path', 'string', ['number'], [index]);
+      const sourcePath = this._presetManifest[index] ?? runtimePath;
+      runtimePresets.push({
+        index,
+        runtimePath,
+        sourcePath,
+        vibe: sourceVibe(sourcePath),
+      });
+    }
+    this._runtimePresets = runtimePresets;
+
+    if (!this._presetManifest.length) {
+      this._buildVibeOptions([]);
     }
   }
 
   _getSelectedVibePresets() {
-    if (!this._presetManifest?.length) return null;
-    const vibe = this._vibeSelect?.value ?? '__all__';
-    if (vibe === '__all__') {
-      return this._presetManifest;
-    }
-    return this._presetManifest.filter((path) => path.startsWith(vibe + '/'));
+    if (!this._runtimePresets.length || !this._vibeSelect) return [];
+    const vibe = this._vibeSelect.value;
+    if (!vibe || vibe === '__none__') return [];
+    return this._runtimePresets.filter((preset) => preset.vibe === vibe);
   }
 
-  _getCurrentModulePresetPath() {
-    if (!this._module) return null;
+  _getCurrentPresetIndex() {
+    if (!this._module) return -1;
     try {
-      return this._module.ccall('pm_get_preset_path', 'string', ['number'], [this._module.ccall('pm_get_preset_index', 'number', [], [])]);
+      return this._module.ccall('pm_get_preset_index', 'number', [], []);
     } catch {
-      return null;
+      return -1;
+    }
+  }
+
+  async _applySelectedVibe({ forceNew = false } = {}) {
+    if (!this._module || !this._ready) return;
+    if (this._vibeBusy) {
+      this._queuedVibeApply = true;
+      return;
+    }
+
+    const candidates = this._getSelectedVibePresets();
+    if (!candidates.length) return;
+
+    this._vibeBusy = true;
+    try {
+      const currentIndex = this._getCurrentPresetIndex();
+      const pool =
+        forceNew && candidates.length > 1
+          ? candidates.filter((preset) => preset.index !== currentIndex)
+          : candidates;
+      const pick = pool[Math.floor(this._random() * pool.length)] ?? candidates[0];
+      await this._selectRuntimePreset(pick.index);
+    } finally {
+      this._vibeBusy = false;
+      if (this._queuedVibeApply) {
+        this._queuedVibeApply = false;
+        await this._applySelectedVibe({ forceNew: true });
+      }
+    }
+  }
+
+  async _selectRuntimePreset(targetIndex) {
+    if (!this._module || !this._ready) return;
+
+    const count = this._module.ccall('pm_get_preset_count', 'number', [], []);
+    if (!count || targetIndex < 0 || targetIndex >= count) return;
+
+    const shouldResume = Boolean(this._raf) || (this.enabled && this.audioActive);
+    this._stopLoop();
+
+    try {
+      const currentIndex = this._getCurrentPresetIndex();
+      let delta = targetIndex - currentIndex;
+      if (Math.abs(delta) > count / 2) {
+        delta += delta > 0 ? -count : count;
+      }
+
+      const functionName = delta < 0 ? 'pm_prev_preset' : 'pm_next_preset';
+      for (let step = 0; step < Math.abs(delta); step++) {
+        this._module.ccall(functionName, null, [], []);
+      }
+      const selectedPreset = this._runtimePresets[targetIndex];
+      if (selectedPreset) {
+        this.hostEl.dataset.vizVibe = selectedPreset.vibe;
+        this.hostEl.dataset.vizPresetIndex = String(selectedPreset.index);
+      }
+      this._renderFrameOnce();
+    } finally {
+      if (shouldResume && this.enabled && this._ready) {
+        this._startLoop();
+      }
     }
   }
 
@@ -396,77 +405,65 @@ export class ProjectMController {
     if (!this._statusEl && this.enabled && !this._ready) {
       this._statusEl = document.createElement('div');
       this._statusEl.className = 'viz-status';
-      this._statusEl.textContent = 'Loading Milkdrop visualizer…';
+      this._statusEl.textContent = 'Loading Milkdrop visualizer...';
       this.hostEl.appendChild(this._statusEl);
     }
   }
 
   _hostSize() {
-    const w = Math.max(1, Math.round(this.hostEl.clientWidth || window.innerWidth));
-    const h = Math.max(1, Math.round(this.hostEl.clientHeight || window.innerHeight));
-    return { w, h };
+    const width = Math.max(1, Math.round(this.hostEl.clientWidth || window.innerWidth));
+    const height = Math.max(1, Math.round(this.hostEl.clientHeight || window.innerHeight));
+    return { width, height };
   }
 
   async _loadModule() {
     this._applyEnabledState();
     if (this._statusEl) {
-      this._statusEl.textContent = 'Loading Milkdrop visualizer…';
+      this._statusEl.textContent = 'Loading Milkdrop visualizer...';
     }
 
     const canvas = this._getOrCreateCanvas();
-    const { w, h } = this._hostSize();
+    const { width, height } = this._hostSize();
 
     try {
       const factory = await resolveProjectMFactory();
       this._module = await factory({
         canvas,
         locateFile: (path) => new URL(path, this._wasmBase).href,
-        // Emscripten .data lookup uses page path unless scriptDirectory is set (GitHub Pages subpaths).
         scriptDirectory: this._wasmBase,
         mainScriptUrlOrBlob: this._scriptUrl,
         print: (text) => console.log('[projectM]', text),
         printErr: (text) => console.error('[projectM]', text),
       });
 
-      const ok = this._module.ccall('pm_init', 'number', ['number', 'number'], [w, h]);
+      const ok = this._module.ccall('pm_init', 'number', ['number', 'number'], [width, height]);
       if (!ok) {
         throw new Error('projectM failed to initialize (SDL/WebGL). Check the browser console.');
       }
 
       this._ready = true;
-      // Keep preset changes fully user-driven. Avoid auto switch collisions while browsing.
       this._module.ccall('pm_set_preset_locked', null, ['number'], [1]);
-      // Gate beat-driven preset cycling at the bridge layer (prevents rapid flicker).
       try {
         this._module.ccall('pm_set_auto_preset_switch_enabled', null, ['number'], [0]);
-
         const presetCount = this._module.ccall('pm_get_preset_count', 'number', [], []);
-        const presetIndex = this._module.ccall('pm_get_preset_index', 'number', [], []);
-        console.log(`[projectM] presets loaded: ${presetCount}, current=${presetIndex}`);
-        for (let i = 0; i < presetCount; i++) {
-          const path = this._module.ccall('pm_get_preset_path', 'string', ['number'], [i]);
-          console.log(`[projectM] preset[${i}]=${path}`);
-        }
+        console.log(`[projectM] presets loaded: ${presetCount}`);
       } catch {
-        /* non-fatal: introspection may fail if functions are missing */
+        /* non-fatal: older builds may not expose introspection helpers */
       }
+
+      this._syncRuntimePresets();
       if (this._statusEl) {
         this._statusEl.remove();
         this._statusEl = null;
       }
 
       this._resize();
-      this._setPresetButtonsDisabled(false);
-      this._updatePresetLabel();
-      if (this.enabled && this.audioActive) {
-        this._startLoop();
-      }
     } catch (err) {
-      const msg =
+      const message =
         err?.message?.includes('fetch') || err?.message?.includes('wasm')
           ? `Could not load visualizer (${err.message}). Ensure public/vendor/projectm/ exists.`
           : err?.message || String(err);
-      this._setError(msg);
+      this._setError(message);
       throw err;
     }
   }
@@ -478,14 +475,22 @@ export class ProjectMController {
       canvas.id = 'projectm-canvas';
       this.hostEl.prepend(canvas);
     }
-    // Do not assign canvas.width/height here — SDL owns the WebGL backing store after pm_init.
     return canvas;
   }
 
   _resize() {
     if (!this._module || !this._ready) return;
-    const { w, h } = this._hostSize();
-    this._module.ccall('pm_resize', null, ['number', 'number'], [w, h]);
+    const { width, height } = this._hostSize();
+    this._module.ccall('pm_resize', null, ['number', 'number'], [width, height]);
+  }
+
+  _renderFrameOnce() {
+    if (!this._module || !this._ready) return;
+    try {
+      this._module.ccall('pm_render_frame', null, [], []);
+    } catch (err) {
+      this._setError(err?.message || 'Render failed');
+    }
   }
 
   _startLoop() {
@@ -494,12 +499,7 @@ export class ProjectMController {
     const tick = () => {
       this._raf = requestAnimationFrame(tick);
       if (!this.enabled || !this._ready) return;
-      try {
-        this._module.ccall('pm_render_frame', null, [], []);
-      } catch (err) {
-        this._stopLoop();
-        this._setError(err?.message || 'Render failed');
-      }
+      this._renderFrameOnce();
     };
     this._raf = requestAnimationFrame(tick);
   }
@@ -508,123 +508,6 @@ export class ProjectMController {
     if (this._raf) {
       cancelAnimationFrame(this._raf);
       this._raf = null;
-    }
-  }
-
-  _friendlyPresetName(path) {
-    if (!path) return 'Unknown';
-    const base = path.split('/').pop() ?? path;
-    const match = base.match(/^preset_\d{3}_(.+)\.milk$/i);
-    return match ? match[1] : base.replace(/\.milk$/i, '');
-  }
-
-  _updatePresetLabel() {
-    if (!this._presetLabelEl || !this._module) return;
-    try {
-      const count = this._module.ccall('pm_get_preset_count', 'number', [], []);
-      const index = this._module.ccall('pm_get_preset_index', 'number', [], []);
-      const path = this._module.ccall('pm_get_preset_path', 'string', ['number'], [index]);
-      const name = this._friendlyPresetName(path);
-      const slot = count > 0 ? `${index + 1}/${count}` : '—';
-      this._presetLabelEl.textContent = `Preset ${slot}: ${name}`;
-    } catch {
-      this._presetLabelEl.textContent = 'Preset —';
-    }
-  }
-
-  async _changePreset(direction) {
-    if (!this._module || !this._ready || !this.enabled) return;
-    const now = performance.now();
-    const elapsed = now - this._presetLastSwitchMs;
-    if (this._presetBusy || elapsed < PRESET_MIN_INTERVAL_MS) {
-      this._presetQueueDir = direction;
-      if (!this._presetBusy && !this._presetUnlockTimer) {
-        const waitMs = Math.max(PRESET_DEFER_FLOOR_MS, PRESET_MIN_INTERVAL_MS - elapsed);
-        this._presetUnlockTimer = setTimeout(() => {
-          this._presetUnlockTimer = null;
-          if (!this.enabled) return;
-          const queuedDir = this._presetQueueDir;
-          this._presetQueueDir = 0;
-          if (queuedDir !== 0) {
-            this._changePreset(queuedDir);
-          }
-        }, waitMs);
-      }
-      return;
-    }
-    this._presetLastSwitchMs = now;
-
-    this._presetBusy = true;
-    this._setPresetButtonsDisabled(true);
-
-    // Prevent preset load/render re-entrancy: pause rendering during the switch.
-    const shouldResume = this.enabled && this._ready && this.audioActive;
-    this._stopLoop();
-    try {
-      const selectedVibe = this._vibeSelect?.value ?? '__all__';
-      let currentPath = null;
-      if (selectedVibe !== '__all__') {
-        currentPath = this._getCurrentModulePresetPath();
-      }
-      if (selectedVibe !== '__all__' && currentPath) {
-        const candidates = this._getSelectedVibePresets();
-        if (candidates?.length) {
-          const normalizedCurrent = currentPath.replace(/^\/+/, '');
-          let index = candidates.findIndex((entry) =>
-            entry === normalizedCurrent ||
-            normalizedCurrent.endsWith(entry) ||
-            entry.endsWith(normalizedCurrent) ||
-            normalizedCurrent.includes('/' + entry) ||
-            entry.includes('/' + normalizedCurrent),
-          );
-          if (index === -1) {
-            index = candidates.findIndex((entry) => normalizedCurrent.includes(entry));
-          }
-          if (index !== -1) {
-            const nextIndex = (index + direction + candidates.length) % candidates.length;
-            await this._selectPresetByPath(candidates[nextIndex]);
-            return;
-          }
-        }
-      }
-      const fn = direction < 0 ? 'pm_prev_preset' : 'pm_next_preset';
-      this._module.ccall(fn, null, [], []);
-    } catch (err) {
-      this._setError(err?.message || 'Preset switch failed');
-    } finally {
-      if (this._presetUnlockTimer) {
-        clearTimeout(this._presetUnlockTimer);
-      }
-      this._presetUnlockTimer = setTimeout(() => {
-        this._presetUnlockTimer = null;
-        this._presetBusy = false;
-        this._setPresetButtonsDisabled(!this.enabled);
-        this._updatePresetLabel();
-        if (!this.enabled) return;
-
-        // Allow one settle frame before resuming the render loop.
-        if (shouldResume) {
-          requestAnimationFrame(() => {
-            try {
-              this._module?.ccall('pm_render_frame', null, [], []);
-            } catch {
-              /* ignore */
-            }
-            this._startLoop();
-          });
-        }
-        if (this._presetQueueDir !== 0) {
-          const queuedDir = this._presetQueueDir;
-          this._presetQueueDir = 0;
-          this._changePreset(queuedDir);
-        }
-      }, PRESET_UNLOCK_DELAY_MS);
-    }
-  }
-
-  _setPresetButtonsDisabled(disabled) {
-    for (const btn of this._presetButtons) {
-      btn.disabled = disabled;
     }
   }
 
@@ -644,39 +527,17 @@ export class ProjectMController {
   }
 
   _feedPcm(interleaved, samplesPerChannel) {
-    const mod = this._module;
-    if (!mod || !interleaved.length) return;
+    const module = this._module;
+    if (!module || !interleaved.length) return;
     const byteLen = interleaved.length * 4;
     const ptr = this._ensurePcmBuffer(byteLen);
     if (!ptr) return;
-    mod.HEAPF32.set(interleaved, ptr >> 2);
-    mod.ccall(
+    module.HEAPF32.set(interleaved, ptr >> 2);
+    module.ccall(
       'pm_feed_pcm',
       null,
       ['number', 'number', 'number'],
       [ptr, samplesPerChannel, 2],
     );
-
-    // Basic beat detection: RMS energy burst triggers auto-shuffle when enabled.
-    try {
-      if (this._autoShuffle) {
-        let sum = 0;
-        for (let i = 0; i < interleaved.length; i++) {
-          const v = interleaved[i];
-          sum += v * v;
-        }
-        const rms = Math.sqrt(sum / interleaved.length);
-        this._rmsHistory.push(rms);
-        if (this._rmsHistory.length > 8) this._rmsHistory.shift();
-        const mean = this._rmsHistory.reduce((a, b) => a + b, 0) / this._rmsHistory.length;
-        const now = performance.now();
-        if (mean > 0 && rms > mean * 2.0 && now - this._lastBeatMs > 420) {
-          this._lastBeatMs = now;
-          this._shufflePreset();
-        }
-      }
-    } catch (err) {
-      /* non-fatal */
-    }
   }
 }

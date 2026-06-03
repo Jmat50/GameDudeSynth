@@ -95,6 +95,9 @@ if ($LASTEXITCODE -ne 0) { Pop-Location; throw "libprojectM install failed." }
 Pop-Location
 
 # 3. Stage presets (cream-of-the-crop subset + textures)
+if (Test-Path $PresetsStage) {
+    Remove-Item (Join-Path $PresetsStage "*") -Recurse -Force -ErrorAction SilentlyContinue
+}
 Ensure-Dir $PresetsStage
 $TexturesDir = Join-Path $PresetsStage "textures"
 Ensure-Dir $TexturesDir
@@ -115,6 +118,7 @@ if (-not (Test-Path $manifestSource)) {
 
 $manifestPath = Join-Path $PresetsStage "presets.manifest"
 $manifestLines = @()
+$bundleLines = @()
 $count = 0
 Get-Content $manifestSource | ForEach-Object {
     $line = $_.Trim()
@@ -128,6 +132,7 @@ Get-Content $manifestSource | ForEach-Object {
     $destName = "preset_{0:D3}_{1}" -f $count, $baseName
     Copy-Item -LiteralPath $src -Destination (Join-Path $PresetsStage $destName) -Force
     $manifestLines += "/presets/$destName"
+    $bundleLines += $line
     $count++
 }
 if ($count -eq 0) {
@@ -172,12 +177,16 @@ foreach ($name in $artifacts) {
     Copy-Item $src -Destination (Join-Path $OutDir $name) -Force
 }
 
+$bundleJson = $bundleLines | ConvertTo-Json
+[System.IO.File]::WriteAllText((Join-Path $OutDir "bundled-presets.json"), $bundleJson + [Environment]::NewLine, $utf8NoBom)
+
 $readme = @"
 # projectM WASM (GameDudeSynth)
 
 Built: $(Get-Date -Format o)
 libprojectM: $ProjectMTag
 Presets: $count from presets-cream-of-the-crop (max $MaxPresets)
+Vibe manifest: bundled-presets.json
 
 ## Licenses
 
