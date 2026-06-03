@@ -60,6 +60,9 @@ export class ProjectMController {
     this._scriptUrl = new URL('projectm.js', this._wasmBase).href;
     document.documentElement.style.setProperty('--viz-opacity', String(this.opacity));
     this._buildControls();
+    this._loadPresetManifest().catch((err) => {
+      console.warn('[projectM] preset manifest load failed', err);
+    });
     this._applyEnabledState(false);
 
     if (!supportsWebGL2()) {
@@ -163,6 +166,8 @@ export class ProjectMController {
     // Vibe selector + shuffle (placed in the preset row for compact top-right controls)
     const vibeSelect = document.createElement('select');
     vibeSelect.className = 'viz-vibe-select';
+    vibeSelect.disabled = true;
+    vibeSelect.appendChild(new Option('Loading Vibes...', '__loading__'));
     const vibeLabel = document.createElement('span');
     vibeLabel.className = 'viz-label';
     vibeLabel.textContent = 'Vibe';
@@ -248,11 +253,12 @@ export class ProjectMController {
           this._buildVibeOptions(entries);
           return;
         }
-      } catch {
-        /* ignore */
+      } catch (err) {
+        console.warn('[projectM] failed to load preset manifest', err);
       }
     }
-    // No manifest found — leave _presetManifest empty.
+    // No manifest found — show default option set.
+    this._buildVibeOptions([]);
   }
 
   _buildVibeOptions(entries) {
@@ -279,7 +285,12 @@ export class ProjectMController {
       localStorage.setItem('gamedude.vibe', sel.value);
     });
     const saved = localStorage.getItem('gamedude.vibe');
-    if (saved) sel.value = saved;
+    if (saved && [...sel.options].some((opt) => opt.value === saved)) {
+      sel.value = saved;
+    } else {
+      sel.value = '__all__';
+    }
+    sel.disabled = false;
   }
 
   async _shufflePreset() {

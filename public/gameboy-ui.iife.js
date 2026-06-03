@@ -3999,10 +3999,18 @@
       this._presetQueueDir = 0;
       this._presetBusy = false;
       this._presetLabelEl = null;
+      this._presetManifest = null;
+      this._vibeSelect = null;
+      this._autoShuffle = false;
+      this._rmsHistory = [];
+      this._lastBeatMs = 0;
       this._wasmBase = vendorBaseUrl();
       this._scriptUrl = new URL("projectm.js", this._wasmBase).href;
       document.documentElement.style.setProperty("--viz-opacity", String(this.opacity));
       this._buildControls();
+      this._loadPresetManifest().catch((err) => {
+        console.warn("[projectM] preset manifest load failed", err);
+      });
       this._applyEnabledState(false);
       if (!supportsWebGL2()) {
         this._setError("WebGL2 is required for Milkdrop visuals.");
@@ -4090,7 +4098,20 @@
       nextBtn.addEventListener("click", () => this._changePreset(1));
       this._presetButtons = [prevBtn, nextBtn];
       this._setPresetButtonsDisabled(true);
-      presetRow.append(prevBtn, nextBtn);
+      const vibeSelect = document.createElement("select");
+      vibeSelect.className = "viz-vibe-select";
+      vibeSelect.disabled = true;
+      vibeSelect.appendChild(new Option("Loading Vibes...", "__loading__"));
+      const vibeLabel = document.createElement("span");
+      vibeLabel.className = "viz-label";
+      vibeLabel.textContent = "Vibe";
+      const shuffleBtn = document.createElement("button");
+      shuffleBtn.type = "button";
+      shuffleBtn.className = "viz-btn";
+      shuffleBtn.textContent = "Shuffle";
+      shuffleBtn.addEventListener("click", () => this._shufflePreset());
+      presetRow.append(prevBtn, vibeLabel, vibeSelect, shuffleBtn, nextBtn);
+      this._vibeSelect = vibeSelect;
       this._presetLabelEl = document.createElement("p");
       this._presetLabelEl.className = "viz-preset-label";
       this._presetLabelEl.textContent = "Preset \u2014";
@@ -4110,12 +4131,147 @@
         document.documentElement.style.setProperty("--viz-opacity", String(this.opacity));
       });
       opacityRow.appendChild(opacityInput);
+      const autoRow = document.createElement("label");
+      autoRow.className = "viz-controls-row";
+      autoRow.innerHTML = `
+      <span class="viz-label">Auto</span>
+      <input type="checkbox" class="viz-auto-toggle" id="viz-auto-toggle" />
+      <span class="viz-auto-text">Beat-shuffle</span>
+    `;
+      const autoToggle = autoRow.querySelector("#viz-auto-toggle");
+      this._autoShuffle = localStorage.getItem("gamedude.vizAutoShuffle") === "true";
+      autoToggle.checked = this._autoShuffle;
+      autoToggle.addEventListener("change", () => {
+        this._autoShuffle = autoToggle.checked;
+        localStorage.setItem("gamedude.vizAutoShuffle", this._autoShuffle ? "true" : "false");
+      });
+      opacityRow.appendChild(autoRow);
       this._errorEl = document.createElement("p");
       this._errorEl.className = "viz-error";
       this._errorEl.hidden = true;
       this.controlsEl.append(toggleWrap, presetRow, this._presetLabelEl, opacityRow, this._errorEl);
       if (this.enabled) {
         this.enable().catch((err) => this._setError(err.message));
+      }
+    }
+    async _loadPresetManifest() {
+      const candidates = [
+        new URL("public/vendor/projectm/presets/manifest.json", window.location.href).href,
+        new URL("public/vendor/projectm/presets/manifest.txt", window.location.href).href,
+        new URL("scripts/projectm-preset-manifest.txt", window.location.href).href
+      ];
+      for (const url of candidates) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const text = await res.text();
+          let entries = [];
+          try {
+            const json = JSON.parse(text);
+            if (Array.isArray(json)) entries = json;
+          } catch {
+            entries = text.split(/\r?\n/).map((l3) => l3.trim()).filter(Boolean).map((l3) => l3.replace(/^#.*$/, "").trim()).filter(Boolean);
+          }
+          if (entries.length) {
+            this._presetManifest = entries;
+            this._buildVibeOptions(entries);
+            return;
+          }
+        } catch (err) {
+          console.warn("[projectM] failed to load preset manifest", err);
+        }
+      }
+      this._buildVibeOptions([]);
+    }
+    _buildVibeOptions(entries) {
+      const groups = /* @__PURE__ */ new Map();
+      for (const p3 of entries) {
+        const cat = p3.split("/")[0] || "Misc";
+        if (!groups.has(cat)) groups.set(cat, []);
+        groups.get(cat).push(p3);
+      }
+      const sel = this._vibeSelect;
+      sel.innerHTML = "";
+      const optAll = document.createElement("option");
+      optAll.value = "__all__";
+      optAll.textContent = "All (manifest)";
+      sel.appendChild(optAll);
+      for (const [cat] of groups) {
+        const opt = document.createElement("option");
+        opt.value = cat;
+        opt.textContent = cat;
+        sel.appendChild(opt);
+      }
+      sel.addEventListener("change", () => {
+        localStorage.setItem("gamedude.vibe", sel.value);
+      });
+      const saved = localStorage.getItem("gamedude.vibe");
+      if (saved && [...sel.options].some((opt) => opt.value === saved)) {
+        sel.value = saved;
+      } else {
+        sel.value = "__all__";
+      }
+      sel.disabled = false;
+    }
+    async _shufflePreset() {
+      if (!this._module) return;
+      if (this._presetManifest && this._presetManifest.length) {
+        const vibe = this._vibeSelect?.value ?? "__all__";
+        let candidates = this._presetManifest;
+        if (vibe && vibe !== "__all__") {
+          candidates = candidates.filter((p3) => p3.startsWith(vibe + "/"));
+        }
+        if (!candidates.length) candidates = this._presetManifest;
+        const pick = candidates[Math.floor(Math.random() * candidates.length)];
+        await this._selectPresetByPath(pick);
+      } else {
+        const count = this._module.ccall("pm_get_preset_count", "number", [], []);
+        if (!count) return;
+        const steps = Math.floor(Math.random() * Math.min(20, count));
+        for (let i6 = 0; i6 < steps; i6++) {
+          this._module.ccall("pm_next_preset", null, [], []);
+        }
+        this._updatePresetLabel();
+      }
+    }
+    async _selectPresetByPath(relPath) {
+      if (!this._module) return;
+      try {
+        const count = this._module.ccall("pm_get_preset_count", "number", [], []);
+        if (!count) return;
+        const normalized = relPath.replace(/^\/+/, "");
+        for (let i6 = 0; i6 < count; i6++) {
+          const path = this._module.ccall("pm_get_preset_path", "string", ["number"], [i6]);
+          if (!path) continue;
+          if (path.endsWith(normalized) || path.includes("/" + normalized)) {
+            const cur = this._module.ccall("pm_get_preset_index", "number", [], []);
+            let delta = i6 - cur;
+            if (Math.abs(delta) > count / 2) {
+              if (delta > 0) delta = delta - count;
+              else delta = delta + count;
+            }
+            const fn = delta >= 0 ? "pm_next_preset" : "pm_prev_preset";
+            const steps = Math.abs(delta);
+            for (let s4 = 0; s4 < steps; s4++) {
+              this._module.ccall(fn, null, [], []);
+            }
+            this._updatePresetLabel();
+            return;
+          }
+        }
+        for (let i6 = 0; i6 < count; i6++) {
+          const path = this._module.ccall("pm_get_preset_path", "string", ["number"], [i6]);
+          if (path && path.includes(normalized)) {
+            const cur = this._module.ccall("pm_get_preset_index", "number", [], []);
+            while (this._module.ccall("pm_get_preset_index", "number", [], []) !== i6) {
+              this._module.ccall("pm_next_preset", null, [], []);
+            }
+            this._updatePresetLabel();
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("[projectM] _selectPresetByPath failed", err);
       }
     }
     _setError(message) {
@@ -4335,6 +4491,25 @@
         ["number", "number", "number"],
         [ptr, samplesPerChannel, 2]
       );
+      try {
+        if (this._autoShuffle) {
+          let sum = 0;
+          for (let i6 = 0; i6 < interleaved.length; i6++) {
+            const v2 = interleaved[i6];
+            sum += v2 * v2;
+          }
+          const rms = Math.sqrt(sum / interleaved.length);
+          this._rmsHistory.push(rms);
+          if (this._rmsHistory.length > 8) this._rmsHistory.shift();
+          const mean = this._rmsHistory.reduce((a3, b3) => a3 + b3, 0) / this._rmsHistory.length;
+          const now = performance.now();
+          if (mean > 0 && rms > mean * 2 && now - this._lastBeatMs > 420) {
+            this._lastBeatMs = now;
+            this._shufflePreset();
+          }
+        }
+      } catch (err) {
+      }
     }
   };
 
