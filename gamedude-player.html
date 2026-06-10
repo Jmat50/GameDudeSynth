@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="./src-player/visualizer/visualizer.css" />
 </head>
 <body>
-  <div id="projectm-host" class="is-disabled" aria-hidden="true"></div>
+  <div id="viz-host" class="is-disabled" aria-hidden="true"></div>
   <!-- Inline position fallback: without visualizer.css, controls sit in document flow (top-center), not top-right. -->
   <div id="fullscreen-control">
     <button
@@ -42,8 +42,8 @@
     Slide power ON · any `.wav` file can be dragged onto the Game Boy to play · ↑↓ select · A/START play or pause · B stop · ←/→ skip ±15s while playing
   </p>
 
-  <!-- projectM must load before the player bundle (sets createProjectMModule + .data path). -->
-  <script src="./public/vendor/projectm/projectm.js"></script>
+  <!-- butterchurn must load before the player bundle (sets window.butterchurn). -->
+  <script src="./public/vendor/butterchurn/butterchurn.iife.js"></script>
   <script src="./public/gameboy-ui.iife.js"></script>
   <script>
     (function () {

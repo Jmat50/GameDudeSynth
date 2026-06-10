@@ -7,17 +7,18 @@
     "typecheck": "tsc --noEmit",
     "build:bundle": "esbuild src-v2/index.ts --bundle --platform=browser --format=iife --global-name=GameDudeSynthV2 --outfile=public/gameboy-player.iife.js",
     "build:player-ui": "esbuild src-player/index.js --bundle --platform=browser --format=iife --outfile=public/gameboy-ui.iife.js",
-    "verify:projectm": "node scripts/verify-projectm-vendor.js",
-    "build:pages": "node scripts/verify-projectm-vendor.js && node scripts/build-github-pages.js",
+    "build:butterchurn": "node scripts/build-butterchurn-vendor.mjs",
+    "verify:butterchurn": "node scripts/verify-butterchurn-vendor.js",
+    "build:pages": "node scripts/verify-butterchurn-vendor.js && node scripts/build-github-pages.js",
     "build:demo": "npm run build:all && npm run demos:manifest && npm run build:pages",
-    "build:all": "npm run build:bundle && npm run build:player-ui",
+    "build:all": "npm run build:bundle && npm run build:player-ui && npm run build:butterchurn",
     "demos:manifest": "node scripts/generate-demos-manifest.js",
     "process:midi": "npx vite-node scripts/process-local-midi-v2.ts",
     "test:track-analysis": "npx vite-node scripts/test-track-analysis.ts",
     "test:preview-window": "npx vite-node scripts/test-preview-window.ts",
     "test:viz-controller": "node scripts/test-viz-controller.mjs",
     "presets:docs": "node scripts/generate-preset-docs.mjs",
-    "verify:presets": "node scripts/verify-projectm-presets.mjs"
+    "verify:presets": "node scripts/verify-butterchurn-presets.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -29,6 +30,8 @@
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
+    "butterchurn": "^3.0.0-beta.5",
+    "butterchurn-presets": "^3.0.0-beta.4",
     "howler": "^2.2.4",
     "lit": "^3.3.3"
   },

@@ -1,0 +1,362 @@
+[
+  {
+    "index": 0,
+    "vibe": "Particles",
+    "key": "$$$ Royal - Mashup (220)",
+    "displayName": "$$$ Royal - Mashup (220)",
+    "description": "Dense particle mashup baseline",
+    "url": "./presets/royal-mashup-220-528612c1.json",
+    "slug": "royal-mashup-220-528612c1"
+  },
+  {
+    "index": 1,
+    "vibe": "Particles",
+    "key": "Zylot - Star Ornament",
+    "displayName": "Zylot - Star Ornament",
+    "description": "Starfield / jewel particles",
+    "url": "./presets/zylot-star-ornament-94e320a2.json",
+    "slug": "zylot-star-ornament-94e320a2"
+  },
+  {
+    "index": 2,
+    "vibe": "Particles",
+    "key": "Phat+fiShbRaiN+Eo.S_Mandala_Chasers_remix",
+    "displayName": "Phat+fiShbRaiN+Eo.S_Mandala_Chasers_remix",
+    "description": "Mandala particle chase",
+    "url": "./presets/phat-fishbrain-eo-s-mandala-chasers-remix-da509ee4.json",
+    "slug": "phat-fishbrain-eo-s-mandala-chasers-remix-da509ee4"
+  },
+  {
+    "index": 3,
+    "vibe": "Particles",
+    "key": "ORB - Waaa",
+    "displayName": "ORB - Waaa",
+    "description": "Orbital point motion",
+    "url": "./presets/orb-waaa-4a653034.json",
+    "slug": "orb-waaa-4a653034"
+  },
+  {
+    "index": 4,
+    "vibe": "Dancer",
+    "key": "Eo.S. - glowsticks v2 05 and proton lights (+Krash′s beat code) _Phat_remix02b",
+    "displayName": "Eo.S. - glowsticks v2 05 and proton lights (+Krash′s beat code) _Phat_remix02b",
+    "description": "Glowstick dance trails",
+    "url": "./presets/eo-s-glowsticks-v2-05-and-proton-lights-krash-s--2e4184c1.json",
+    "slug": "eo-s-glowsticks-v2-05-and-proton-lights-krash-s--2e4184c1"
+  },
+  {
+    "index": 5,
+    "vibe": "Dancer",
+    "key": "martin - disco mix 4",
+    "displayName": "martin - disco mix 4",
+    "description": "Rhythmic dance motion",
+    "url": "./presets/martin-disco-mix-4-9743e51d.json",
+    "slug": "martin-disco-mix-4-9743e51d"
+  },
+  {
+    "index": 6,
+    "vibe": "Dancer",
+    "key": "martin - angel flight",
+    "displayName": "martin - angel flight",
+    "description": "Flowing figure motion",
+    "url": "./presets/martin-angel-flight-e6b6ddd9.json",
+    "slug": "martin-angel-flight-e6b6ddd9"
+  },
+  {
+    "index": 7,
+    "vibe": "Dancer",
+    "key": "LuxXx - Play v3 (the war within all of us)",
+    "displayName": "LuxXx - Play v3 (the war within all of us)",
+    "description": "High-energy dancer",
+    "url": "./presets/luxxx-play-v3-the-war-within-all-of-us-cc20ee8b.json",
+    "slug": "luxxx-play-v3-the-war-within-all-of-us-cc20ee8b"
+  },
+  {
+    "index": 8,
+    "vibe": "Drawing",
+    "key": "Geiss - Cauldron - painterly 2 (saturation remix)",
+    "displayName": "Geiss - Cauldron - painterly 2 (saturation remix)",
+    "description": "Painterly strokes",
+    "url": "./presets/geiss-cauldron-painterly-2-saturation-remix-af421a80.json",
+    "slug": "geiss-cauldron-painterly-2-saturation-remix-af421a80"
+  },
+  {
+    "index": 9,
+    "vibe": "Drawing",
+    "key": "Zylot - Paint Spill (Music Reactive Paint Mix)",
+    "displayName": "Zylot - Paint Spill (Music Reactive Paint Mix)",
+    "description": "Liquid paint reaction",
+    "url": "./presets/zylot-paint-spill-music-reactive-paint-mix-2bdb7278.json",
+    "slug": "zylot-paint-spill-music-reactive-paint-mix-2bdb7278"
+  },
+  {
+    "index": 10,
+    "vibe": "Drawing",
+    "key": "Cope - The Neverending Explosion of Red Liquid Fire",
+    "displayName": "Cope - The Neverending Explosion of Red Liquid Fire",
+    "description": "Ink / fire strokes",
+    "url": "./presets/cope-the-neverending-explosion-of-red-liquid-fir-d6b20d64.json",
+    "slug": "cope-the-neverending-explosion-of-red-liquid-fir-d6b20d64"
+  },
+  {
+    "index": 11,
+    "vibe": "Drawing",
+    "key": "cope + martin - mother-of-pearl",
+    "displayName": "cope + martin - mother-of-pearl",
+    "description": "Soft flowing lines",
+    "url": "./presets/cope-martin-mother-of-pearl-cd1445f7.json",
+    "slug": "cope-martin-mother-of-pearl-cd1445f7"
+  },
+  {
+    "index": 12,
+    "vibe": "Fractal",
+    "key": "Geiss - Spiral Artifact",
+    "displayName": "Geiss - Spiral Artifact",
+    "description": "Nested spiral zoom",
+    "url": "./presets/geiss-spiral-artifact-122dc173.json",
+    "slug": "geiss-spiral-artifact-122dc173"
+  },
+  {
+    "index": 13,
+    "vibe": "Fractal",
+    "key": "Geiss - Reaction Diffusion 2",
+    "displayName": "Geiss - Reaction Diffusion 2",
+    "description": "Reaction-diffusion fractal",
+    "url": "./presets/geiss-reaction-diffusion-2-edc70a2e.json",
+    "slug": "geiss-reaction-diffusion-2-edc70a2e"
+  },
+  {
+    "index": 14,
+    "vibe": "Fractal",
+    "key": "Fumbling_Foo + En D & Martin - Mandelverse",
+    "displayName": "Fumbling_Foo + En D & Martin - Mandelverse",
+    "description": "Mandelbrot-style depth",
+    "url": "./presets/fumbling-foo-en-d-martin-mandelverse-ef8334e4.json",
+    "slug": "fumbling-foo-en-d-martin-mandelverse-ef8334e4"
+  },
+  {
+    "index": 15,
+    "vibe": "Fractal",
+    "key": "martin - mandelbox explorer - high speed demo version",
+    "displayName": "martin - mandelbox explorer - high speed demo version",
+    "description": "Fractal box zoom",
+    "url": "./presets/martin-mandelbox-explorer-high-speed-demo-versio-11011651.json",
+    "slug": "martin-mandelbox-explorer-high-speed-demo-versio-11011651"
+  },
+  {
+    "index": 16,
+    "vibe": "Geometric",
+    "key": "flexi + geiss - pogo cubes vs. tokamak vs. game of life [stahls jelly 4.5 finish]",
+    "displayName": "flexi + geiss - pogo cubes vs. tokamak vs. game of life [stahls jelly 4.5 finish]",
+    "description": "Cubic / grid forms",
+    "url": "./presets/flexi-geiss-pogo-cubes-vs-tokamak-vs-game-of-lif-e1719a13.json",
+    "slug": "flexi-geiss-pogo-cubes-vs-tokamak-vs-game-of-lif-e1719a13"
+  },
+  {
+    "index": 17,
+    "vibe": "Geometric",
+    "key": "Flexi + Martin - astral projection",
+    "displayName": "Flexi + Martin - astral projection",
+    "description": "Symmetric wire forms",
+    "url": "./presets/flexi-martin-astral-projection-4877133e.json",
+    "slug": "flexi-martin-astral-projection-4877133e"
+  },
+  {
+    "index": 18,
+    "vibe": "Geometric",
+    "key": "_Geiss - Artifact 01",
+    "displayName": "_Geiss - Artifact 01",
+    "description": "Clean geometric artifact",
+    "url": "./presets/geiss-artifact-01-7df4619d.json",
+    "slug": "geiss-artifact-01-7df4619d"
+  },
+  {
+    "index": 19,
+    "vibe": "Geometric",
+    "key": "Martin - liquid arrows",
+    "displayName": "Martin - liquid arrows",
+    "description": "Arrow / vector geometry",
+    "url": "./presets/martin-liquid-arrows-8f69eb81.json",
+    "slug": "martin-liquid-arrows-8f69eb81"
+  },
+  {
+    "index": 20,
+    "vibe": "Hypnotic",
+    "key": "Flexi, martin + geiss - dedicated to the sherwin maxawow",
+    "displayName": "Flexi, martin + geiss - dedicated to the sherwin maxawow",
+    "description": "Classic hypnotic warp",
+    "url": "./presets/flexi-martin-geiss-dedicated-to-the-sherwin-maxa-e3d080b1.json",
+    "slug": "flexi-martin-geiss-dedicated-to-the-sherwin-maxa-e3d080b1"
+  },
+  {
+    "index": 21,
+    "vibe": "Hypnotic",
+    "key": "flexi - what is the matrix",
+    "displayName": "flexi - what is the matrix",
+    "description": "Matrix-style illusion",
+    "url": "./presets/flexi-what-is-the-matrix-2a95e12d.json",
+    "slug": "flexi-what-is-the-matrix-2a95e12d"
+  },
+  {
+    "index": 22,
+    "vibe": "Hypnotic",
+    "key": "Flexi - infused with the spiral",
+    "displayName": "Flexi - infused with the spiral",
+    "description": "Spiral hypnosis",
+    "url": "./presets/flexi-infused-with-the-spiral-b58db74c.json",
+    "slug": "flexi-infused-with-the-spiral-b58db74c"
+  },
+  {
+    "index": 23,
+    "vibe": "Hypnotic",
+    "key": "yin - 191 - Temporal singularities",
+    "displayName": "yin - 191 - Temporal singularities",
+    "description": "Slow temporal warp",
+    "url": "./presets/yin-191-temporal-singularities-0aa38c09.json",
+    "slug": "yin-191-temporal-singularities-0aa38c09"
+  },
+  {
+    "index": 24,
+    "vibe": "Reaction",
+    "key": "Rovastar - Oozing Resistance",
+    "displayName": "Rovastar - Oozing Resistance",
+    "description": "Liquid reactive blobs",
+    "url": "./presets/rovastar-oozing-resistance-c0303230.json",
+    "slug": "rovastar-oozing-resistance-c0303230"
+  },
+  {
+    "index": 25,
+    "vibe": "Reaction",
+    "key": "cope + flexi - colorful marble (ghost mix)",
+    "displayName": "cope + flexi - colorful marble (ghost mix)",
+    "description": "Marble fluid",
+    "url": "./presets/cope-flexi-colorful-marble-ghost-mix-2b633a89.json",
+    "slug": "cope-flexi-colorful-marble-ghost-mix-2b633a89"
+  },
+  {
+    "index": 26,
+    "vibe": "Reaction",
+    "key": "AdamFx 2 Geiss, Zylot and Flexi - Reaction Diffusion 3 (Overload Mix 2) EATIT4 hypno",
+    "displayName": "AdamFx 2 Geiss, Zylot and Flexi - Reaction Diffusion 3 (Overload Mix 2) EATIT4 hypno",
+    "description": "Overloaded reaction field",
+    "url": "./presets/adamfx-2-geiss-zylot-and-flexi-reaction-diffusio-00b79892.json",
+    "slug": "adamfx-2-geiss-zylot-and-flexi-reaction-diffusio-00b79892"
+  },
+  {
+    "index": 27,
+    "vibe": "Reaction",
+    "key": "shifter - liquid circuitry - conjugoth",
+    "displayName": "shifter - liquid circuitry - conjugoth",
+    "description": "Circuit-like liquid",
+    "url": "./presets/shifter-liquid-circuitry-conjugoth-0309c388.json",
+    "slug": "shifter-liquid-circuitry-conjugoth-0309c388"
+  },
+  {
+    "index": 28,
+    "vibe": "Sparkle",
+    "key": "Flexi - mindblob [shiny mix]",
+    "displayName": "Flexi - mindblob [shiny mix]",
+    "description": "Shiny highlights",
+    "url": "./presets/flexi-mindblob-shiny-mix-03fd5643.json",
+    "slug": "flexi-mindblob-shiny-mix-03fd5643"
+  },
+  {
+    "index": 29,
+    "vibe": "Sparkle",
+    "key": "Goody - The Wild Vort",
+    "displayName": "Goody - The Wild Vort",
+    "description": "Vortex sparkles",
+    "url": "./presets/goody-the-wild-vort-618e371e.json",
+    "slug": "goody-the-wild-vort-618e371e"
+  },
+  {
+    "index": 30,
+    "vibe": "Sparkle",
+    "key": "Halfbreak - Light of Breakers",
+    "displayName": "Halfbreak - Light of Breakers",
+    "description": "Bright breaker flashes",
+    "url": "./presets/halfbreak-light-of-breakers-309d9cc4.json",
+    "slug": "halfbreak-light-of-breakers-309d9cc4"
+  },
+  {
+    "index": 31,
+    "vibe": "Sparkle",
+    "key": "Zylot - True Visionary (Final Mix)",
+    "displayName": "Zylot - True Visionary (Final Mix)",
+    "description": "Jewel / flare bursts",
+    "url": "./presets/zylot-true-visionary-final-mix-c371a113.json",
+    "slug": "zylot-true-visionary-final-mix-c371a113"
+  },
+  {
+    "index": 32,
+    "vibe": "Supernova",
+    "key": "Eo.S. + Zylot - skylight (Stained Glass Majesty mix)",
+    "displayName": "Eo.S. + Zylot - skylight (Stained Glass Majesty mix)",
+    "description": "Radial stained-glass burst",
+    "url": "./presets/eo-s-zylot-skylight-stained-glass-majesty-mix-15799239.json",
+    "slug": "eo-s-zylot-skylight-stained-glass-majesty-mix-15799239"
+  },
+  {
+    "index": 33,
+    "vibe": "Supernova",
+    "key": "martin - extreme heat",
+    "displayName": "martin - extreme heat",
+    "description": "Heat / radial flare",
+    "url": "./presets/martin-extreme-heat-5433bd91.json",
+    "slug": "martin-extreme-heat-5433bd91"
+  },
+  {
+    "index": 34,
+    "vibe": "Supernova",
+    "key": "Unchained - Unified Drag 2",
+    "displayName": "Unchained - Unified Drag 2",
+    "description": "Dragging star burst",
+    "url": "./presets/unchained-unified-drag-2-7e62ad3b.json",
+    "slug": "unchained-unified-drag-2-7e62ad3b"
+  },
+  {
+    "index": 35,
+    "vibe": "Supernova",
+    "key": "Aderrasi - Storm of the Eye (Thunder) - mash0000 - quasi pseudo meta concentrics",
+    "displayName": "Aderrasi - Storm of the Eye (Thunder) - mash0000 - quasi pseudo meta concentrics",
+    "description": "Storm / radiate",
+    "url": "./presets/aderrasi-storm-of-the-eye-thunder-mash0000-quasi-25ec2f3e.json",
+    "slug": "aderrasi-storm-of-the-eye-thunder-mash0000-quasi-25ec2f3e"
+  },
+  {
+    "index": 36,
+    "vibe": "Waveform",
+    "key": "martin - chain breaker",
+    "displayName": "martin - chain breaker",
+    "description": "Spectrum-driven motion",
+    "url": "./presets/martin-chain-breaker-572fd90d.json",
+    "slug": "martin-chain-breaker-572fd90d"
+  },
+  {
+    "index": 37,
+    "vibe": "Waveform",
+    "key": "Geiss - Thumb Drum",
+    "displayName": "Geiss - Thumb Drum",
+    "description": "Percussive waveform",
+    "url": "./presets/geiss-thumb-drum-ddc2c91f.json",
+    "slug": "geiss-thumb-drum-ddc2c91f"
+  },
+  {
+    "index": 38,
+    "vibe": "Waveform",
+    "key": "Geiss, Flexi + Stahlregen - Thumbdrum Tokamak [crossfiring aftermath jelly mashup]",
+    "displayName": "Geiss, Flexi + Stahlregen - Thumbdrum Tokamak [crossfiring aftermath jelly mashup]",
+    "description": "Dense wire waveform",
+    "url": "./presets/geiss-flexi-stahlregen-thumbdrum-tokamak-crossfi-80012f21.json",
+    "slug": "geiss-flexi-stahlregen-thumbdrum-tokamak-crossfi-80012f21"
+  },
+  {
+    "index": 39,
+    "vibe": "Waveform",
+    "key": "shifter - escape (sigur ros)",
+    "displayName": "shifter - escape (sigur ros)",
+    "description": "Melodic waveform flow",
+    "url": "./presets/shifter-escape-sigur-ros-68d4bc45.json",
+    "slug": "shifter-escape-sigur-ros-68d4bc45"
+  }
+]

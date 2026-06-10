@@ -40,7 +40,7 @@
            * @return {Howler}
            */
           init: function() {
-            var self = this || Howler4;
+            var self = this || Howler3;
             self._counter = 1e3;
             self._html5AudioPool = [];
             self.html5PoolSize = 10;
@@ -65,7 +65,7 @@
            * @return {Howler/Float}     Returns self or current volume.
            */
           volume: function(vol) {
-            var self = this || Howler4;
+            var self = this || Howler3;
             vol = parseFloat(vol);
             if (!self.ctx) {
               setupAudioContext();
@@ -76,7 +76,7 @@
                 return self;
               }
               if (self.usingWebAudio) {
-                self.masterGain.gain.setValueAtTime(vol, Howler4.ctx.currentTime);
+                self.masterGain.gain.setValueAtTime(vol, Howler3.ctx.currentTime);
               }
               for (var i6 = 0; i6 < self._howls.length; i6++) {
                 if (!self._howls[i6]._webAudio) {
@@ -98,13 +98,13 @@
            * @param  {Boolean} muted Is muted or not.
            */
           mute: function(muted) {
-            var self = this || Howler4;
+            var self = this || Howler3;
             if (!self.ctx) {
               setupAudioContext();
             }
             self._muted = muted;
             if (self.usingWebAudio) {
-              self.masterGain.gain.setValueAtTime(muted ? 0 : self._volume, Howler4.ctx.currentTime);
+              self.masterGain.gain.setValueAtTime(muted ? 0 : self._volume, Howler3.ctx.currentTime);
             }
             for (var i6 = 0; i6 < self._howls.length; i6++) {
               if (!self._howls[i6]._webAudio) {
@@ -123,7 +123,7 @@
            * Handle stopping all sounds globally.
            */
           stop: function() {
-            var self = this || Howler4;
+            var self = this || Howler3;
             for (var i6 = 0; i6 < self._howls.length; i6++) {
               self._howls[i6].stop();
             }
@@ -134,7 +134,7 @@
            * @return {Howler}
            */
           unload: function() {
-            var self = this || Howler4;
+            var self = this || Howler3;
             for (var i6 = self._howls.length - 1; i6 >= 0; i6--) {
               self._howls[i6].unload();
             }
@@ -151,14 +151,14 @@
            * @return {Boolean}
            */
           codecs: function(ext) {
-            return (this || Howler4)._codecs[ext.replace(/^x-/, "")];
+            return (this || Howler3)._codecs[ext.replace(/^x-/, "")];
           },
           /**
            * Setup various state values for global tracking.
            * @return {Howler}
            */
           _setup: function() {
-            var self = this || Howler4;
+            var self = this || Howler3;
             self.state = self.ctx ? self.ctx.state || "suspended" : "suspended";
             self._autoSuspend();
             if (!self.usingWebAudio) {
@@ -192,7 +192,7 @@
            * @return {Howler}
            */
           _setupCodecs: function() {
-            var self = this || Howler4;
+            var self = this || Howler3;
             var audioTest = null;
             try {
               audioTest = typeof Audio !== "undefined" ? new Audio() : null;
@@ -235,7 +235,7 @@
            * @return {Howler}
            */
           _unlockAudio: function() {
-            var self = this || Howler4;
+            var self = this || Howler3;
             if (self._audioUnlocked || !self.ctx) {
               return;
             }
@@ -305,7 +305,7 @@
            * @return {Audio} HTML5 Audio object.
            */
           _obtainHtml5Audio: function() {
-            var self = this || Howler4;
+            var self = this || Howler3;
             if (self._html5AudioPool.length) {
               return self._html5AudioPool.pop();
             }
@@ -322,7 +322,7 @@
            * @return {Howler}
            */
           _releaseHtml5Audio: function(audio) {
-            var self = this || Howler4;
+            var self = this || Howler3;
             if (audio._unlocked) {
               self._html5AudioPool.push(audio);
             }
@@ -335,7 +335,7 @@
            */
           _autoSuspend: function() {
             var self = this;
-            if (!self.autoSuspend || !self.ctx || typeof self.ctx.suspend === "undefined" || !Howler4.usingWebAudio) {
+            if (!self.autoSuspend || !self.ctx || typeof self.ctx.suspend === "undefined" || !Howler3.usingWebAudio) {
               return;
             }
             for (var i6 = 0; i6 < self._howls.length; i6++) {
@@ -373,7 +373,7 @@
            */
           _autoResume: function() {
             var self = this;
-            if (!self.ctx || typeof self.ctx.resume === "undefined" || !Howler4.usingWebAudio) {
+            if (!self.ctx || typeof self.ctx.resume === "undefined" || !Howler3.usingWebAudio) {
               return;
             }
             if (self.state === "running" && self.ctx.state !== "interrupted" && self._suspendTimer) {
@@ -396,7 +396,7 @@
             return self;
           }
         };
-        var Howler4 = new HowlerGlobal2();
+        var Howler3 = new HowlerGlobal2();
         var Howl3 = function(o5) {
           var self = this;
           if (!o5.src || o5.src.length === 0) {
@@ -413,7 +413,7 @@
            */
           init: function(o5) {
             var self = this;
-            if (!Howler4.ctx) {
+            if (!Howler3.ctx) {
               setupAudioContext();
             }
             self._autoplay = o5.autoplay || false;
@@ -452,11 +452,11 @@
             self._onseek = o5.onseek ? [{ fn: o5.onseek }] : [];
             self._onunlock = o5.onunlock ? [{ fn: o5.onunlock }] : [];
             self._onresume = [];
-            self._webAudio = Howler4.usingWebAudio && !self._html5;
-            if (typeof Howler4.ctx !== "undefined" && Howler4.ctx && Howler4.autoUnlock) {
-              Howler4._unlockAudio();
+            self._webAudio = Howler3.usingWebAudio && !self._html5;
+            if (typeof Howler3.ctx !== "undefined" && Howler3.ctx && Howler3.autoUnlock) {
+              Howler3._unlockAudio();
             }
-            Howler4._howls.push(self);
+            Howler3._howls.push(self);
             if (self._autoplay) {
               self._queue.push({
                 event: "play",
@@ -477,7 +477,7 @@
           load: function() {
             var self = this;
             var url = null;
-            if (Howler4.noAudio) {
+            if (Howler3.noAudio) {
               self._emit("loaderror", null, "No audio support.");
               return;
             }
@@ -505,7 +505,7 @@
               if (!ext) {
                 console.warn('No file extension was found. Consider using the "format" property or specify an extension.');
               }
-              if (ext && Howler4.codecs(ext)) {
+              if (ext && Howler3.codecs(ext)) {
                 url = self._src[i6];
                 break;
               }
@@ -583,7 +583,7 @@
               return sound._id;
             }
             if (self._webAudio) {
-              Howler4._autoResume();
+              Howler3._autoResume();
             }
             var seek = Math.max(0, sound._seek > 0 ? sound._seek : self._sprite[sprite][0] / 1e3);
             var duration = Math.max(0, (self._sprite[sprite][0] + self._sprite[sprite][1]) / 1e3 - seek);
@@ -610,8 +610,8 @@
                 setParams();
                 self._refreshBuffer(sound);
                 var vol = sound._muted || self._muted ? 0 : sound._volume;
-                node.gain.setValueAtTime(vol, Howler4.ctx.currentTime);
-                sound._playStart = Howler4.ctx.currentTime;
+                node.gain.setValueAtTime(vol, Howler3.ctx.currentTime);
+                sound._playStart = Howler3.ctx.currentTime;
                 if (typeof node.bufferSource.start === "undefined") {
                   sound._loop ? node.bufferSource.noteGrainOn(0, seek, 86400) : node.bufferSource.noteGrainOn(0, seek, duration);
                 } else {
@@ -627,7 +627,7 @@
                   }, 0);
                 }
               };
-              if (Howler4.state === "running" && Howler4.ctx.state !== "interrupted") {
+              if (Howler3.state === "running" && Howler3.ctx.state !== "interrupted") {
                 playWebAudio();
               } else {
                 self._playLock = true;
@@ -637,8 +637,8 @@
             } else {
               var playHtml5 = function() {
                 node.currentTime = seek;
-                node.muted = sound._muted || self._muted || Howler4._muted || node.muted;
-                node.volume = sound._volume * Howler4.volume();
+                node.muted = sound._muted || self._muted || Howler3._muted || node.muted;
+                node.volume = sound._volume * Howler3.volume();
                 node.playbackRate = sound._rate;
                 try {
                   var play = node.play();
@@ -686,7 +686,7 @@
                 node.src = self._src;
                 node.load();
               }
-              var loadedNoReadyState = window && window.ejecta || !node.readyState && Howler4._navigator.isCocoonJS;
+              var loadedNoReadyState = window && window.ejecta || !node.readyState && Howler3._navigator.isCocoonJS;
               if (node.readyState >= 3 || loadedNoReadyState) {
                 playHtml5();
               } else {
@@ -695,9 +695,9 @@
                 var listener = function() {
                   self._state = "loaded";
                   playHtml5();
-                  node.removeEventListener(Howler4._canPlayEvent, listener, false);
+                  node.removeEventListener(Howler3._canPlayEvent, listener, false);
                 };
-                node.addEventListener(Howler4._canPlayEvent, listener, false);
+                node.addEventListener(Howler3._canPlayEvent, listener, false);
                 self._clearTimer(sound._id);
               }
             }
@@ -835,9 +835,9 @@
                   self._stopFade(sound._id);
                 }
                 if (self._webAudio && sound._node) {
-                  sound._node.gain.setValueAtTime(muted ? 0 : sound._volume, Howler4.ctx.currentTime);
+                  sound._node.gain.setValueAtTime(muted ? 0 : sound._volume, Howler3.ctx.currentTime);
                 } else if (sound._node) {
-                  sound._node.muted = Howler4._muted ? true : muted;
+                  sound._node.muted = Howler3._muted ? true : muted;
                 }
                 self._emit("mute", sound._id);
               }
@@ -893,9 +893,9 @@
                     self._stopFade(id[i6]);
                   }
                   if (self._webAudio && sound._node && !sound._muted) {
-                    sound._node.gain.setValueAtTime(vol, Howler4.ctx.currentTime);
+                    sound._node.gain.setValueAtTime(vol, Howler3.ctx.currentTime);
                   } else if (sound._node && !sound._muted) {
-                    sound._node.volume = vol * Howler4.volume();
+                    sound._node.volume = vol * Howler3.volume();
                   }
                   self._emit("volume", sound._id);
                 }
@@ -937,7 +937,7 @@
                   self._stopFade(ids[i6]);
                 }
                 if (self._webAudio && !sound._muted) {
-                  var currentTime = Howler4.ctx.currentTime;
+                  var currentTime = Howler3.ctx.currentTime;
                   var end = currentTime + len / 1e3;
                   sound._volume = from;
                   sound._node.gain.setValueAtTime(from, currentTime);
@@ -1003,7 +1003,7 @@
             var sound = self._soundById(id);
             if (sound && sound._interval) {
               if (self._webAudio) {
-                sound._node.gain.cancelScheduledValues(Howler4.ctx.currentTime);
+                sound._node.gain.cancelScheduledValues(Howler3.ctx.currentTime);
               }
               clearInterval(sound._interval);
               sound._interval = null;
@@ -1105,11 +1105,11 @@
                 if (sound) {
                   if (self.playing(id[i6])) {
                     sound._rateSeek = self.seek(id[i6]);
-                    sound._playStart = self._webAudio ? Howler4.ctx.currentTime : sound._playStart;
+                    sound._playStart = self._webAudio ? Howler3.ctx.currentTime : sound._playStart;
                   }
                   sound._rate = rate;
                   if (self._webAudio && sound._node && sound._node.bufferSource) {
-                    sound._node.bufferSource.playbackRate.setValueAtTime(rate, Howler4.ctx.currentTime);
+                    sound._node.bufferSource.playbackRate.setValueAtTime(rate, Howler3.ctx.currentTime);
                   } else if (sound._node) {
                     sound._node.playbackRate = rate;
                   }
@@ -1203,7 +1203,7 @@
                 }
               } else {
                 if (self._webAudio) {
-                  var realTime = self.playing(id) ? Howler4.ctx.currentTime - sound._playStart : 0;
+                  var realTime = self.playing(id) ? Howler3.ctx.currentTime - sound._playStart : 0;
                   var rateSeek = sound._rateSeek ? sound._rateSeek - sound._seek : 0;
                   return sound._seek + (rateSeek + realTime * Math.abs(sound._rate));
                 } else {
@@ -1266,20 +1266,20 @@
               if (!self._webAudio) {
                 self._clearSound(sounds[i6]._node);
                 sounds[i6]._node.removeEventListener("error", sounds[i6]._errorFn, false);
-                sounds[i6]._node.removeEventListener(Howler4._canPlayEvent, sounds[i6]._loadFn, false);
+                sounds[i6]._node.removeEventListener(Howler3._canPlayEvent, sounds[i6]._loadFn, false);
                 sounds[i6]._node.removeEventListener("ended", sounds[i6]._endFn, false);
-                Howler4._releaseHtml5Audio(sounds[i6]._node);
+                Howler3._releaseHtml5Audio(sounds[i6]._node);
               }
               delete sounds[i6]._node;
               self._clearTimer(sounds[i6]._id);
             }
-            var index = Howler4._howls.indexOf(self);
+            var index = Howler3._howls.indexOf(self);
             if (index >= 0) {
-              Howler4._howls.splice(index, 1);
+              Howler3._howls.splice(index, 1);
             }
             var remCache = true;
-            for (i6 = 0; i6 < Howler4._howls.length; i6++) {
-              if (Howler4._howls[i6]._src === self._src || self._src.indexOf(Howler4._howls[i6]._src) >= 0) {
+            for (i6 = 0; i6 < Howler3._howls.length; i6++) {
+              if (Howler3._howls[i6]._src === self._src || self._src.indexOf(Howler3._howls[i6]._src) >= 0) {
                 remCache = false;
                 break;
               }
@@ -1287,7 +1287,7 @@
             if (cache && remCache) {
               delete cache[self._src];
             }
-            Howler4.noAudio = false;
+            Howler3.noAudio = false;
             self._state = "unloaded";
             self._sounds = [];
             self = null;
@@ -1420,7 +1420,7 @@
               self._emit("play", sound._id);
               sound._seek = sound._start || 0;
               sound._rateSeek = 0;
-              sound._playStart = Howler4.ctx.currentTime;
+              sound._playStart = Howler3.ctx.currentTime;
               var timeout = (sound._stop - sound._start) * 1e3 / Math.abs(sound._rate);
               self._endTimers[sound._id] = setTimeout(self._ended.bind(self, sound), timeout);
             }
@@ -1431,7 +1431,7 @@
               sound._rateSeek = 0;
               self._clearTimer(sound._id);
               self._cleanBuffer(sound._node);
-              Howler4._autoSuspend();
+              Howler3._autoSuspend();
             }
             if (!self._webAudio && !loop) {
               self.stop(sound._id, true);
@@ -1539,7 +1539,7 @@
            */
           _refreshBuffer: function(sound) {
             var self = this;
-            sound._node.bufferSource = Howler4.ctx.createBufferSource();
+            sound._node.bufferSource = Howler3.ctx.createBufferSource();
             sound._node.bufferSource.buffer = cache[self._src];
             if (sound._panner) {
               sound._node.bufferSource.connect(sound._panner);
@@ -1551,7 +1551,7 @@
               sound._node.bufferSource.loopStart = sound._start || 0;
               sound._node.bufferSource.loopEnd = sound._stop || 0;
             }
-            sound._node.bufferSource.playbackRate.setValueAtTime(sound._rate, Howler4.ctx.currentTime);
+            sound._node.bufferSource.playbackRate.setValueAtTime(sound._rate, Howler3.ctx.currentTime);
             return self;
           },
           /**
@@ -1561,16 +1561,16 @@
            */
           _cleanBuffer: function(node) {
             var self = this;
-            var isIOS = Howler4._navigator && Howler4._navigator.vendor.indexOf("Apple") >= 0;
+            var isIOS = Howler3._navigator && Howler3._navigator.vendor.indexOf("Apple") >= 0;
             if (!node.bufferSource) {
               return self;
             }
-            if (Howler4._scratchBuffer && node.bufferSource) {
+            if (Howler3._scratchBuffer && node.bufferSource) {
               node.bufferSource.onended = null;
               node.bufferSource.disconnect(0);
               if (isIOS) {
                 try {
-                  node.bufferSource.buffer = Howler4._scratchBuffer;
+                  node.bufferSource.buffer = Howler3._scratchBuffer;
                 } catch (e6) {
                 }
               }
@@ -1583,7 +1583,7 @@
            * @param  {Object} node Audio node to clear.
            */
           _clearSound: function(node) {
-            var checkIE = /MSIE |Trident\//.test(Howler4._navigator && Howler4._navigator.userAgent);
+            var checkIE = /MSIE |Trident\//.test(Howler3._navigator && Howler3._navigator.userAgent);
             if (!checkIE) {
               node.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
             }
@@ -1609,7 +1609,7 @@
             self._paused = true;
             self._ended = true;
             self._sprite = "__default";
-            self._id = ++Howler4._counter;
+            self._id = ++Howler3._counter;
             parent._sounds.push(self);
             self.create();
             return self;
@@ -1621,23 +1621,23 @@
           create: function() {
             var self = this;
             var parent = self._parent;
-            var volume = Howler4._muted || self._muted || self._parent._muted ? 0 : self._volume;
+            var volume = Howler3._muted || self._muted || self._parent._muted ? 0 : self._volume;
             if (parent._webAudio) {
-              self._node = typeof Howler4.ctx.createGain === "undefined" ? Howler4.ctx.createGainNode() : Howler4.ctx.createGain();
-              self._node.gain.setValueAtTime(volume, Howler4.ctx.currentTime);
+              self._node = typeof Howler3.ctx.createGain === "undefined" ? Howler3.ctx.createGainNode() : Howler3.ctx.createGain();
+              self._node.gain.setValueAtTime(volume, Howler3.ctx.currentTime);
               self._node.paused = true;
-              self._node.connect(Howler4.masterGain);
-            } else if (!Howler4.noAudio) {
-              self._node = Howler4._obtainHtml5Audio();
+              self._node.connect(Howler3.masterGain);
+            } else if (!Howler3.noAudio) {
+              self._node = Howler3._obtainHtml5Audio();
               self._errorFn = self._errorListener.bind(self);
               self._node.addEventListener("error", self._errorFn, false);
               self._loadFn = self._loadListener.bind(self);
-              self._node.addEventListener(Howler4._canPlayEvent, self._loadFn, false);
+              self._node.addEventListener(Howler3._canPlayEvent, self._loadFn, false);
               self._endFn = self._endListener.bind(self);
               self._node.addEventListener("ended", self._endFn, false);
               self._node.src = parent._src;
               self._node.preload = parent._preload === true ? "auto" : parent._preload;
-              self._node.volume = volume * Howler4.volume();
+              self._node.volume = volume * Howler3.volume();
               self._node.load();
             }
             return self;
@@ -1658,7 +1658,7 @@
             self._paused = true;
             self._ended = true;
             self._sprite = "__default";
-            self._id = ++Howler4._counter;
+            self._id = ++Howler3._counter;
             return self;
           },
           /**
@@ -1684,7 +1684,7 @@
               parent._emit("load");
               parent._loadQueue();
             }
-            self._node.removeEventListener(Howler4._canPlayEvent, self._loadFn, false);
+            self._node.removeEventListener(Howler3._canPlayEvent, self._loadFn, false);
           },
           /**
            * HTML5 Audio ended listener callback.
@@ -1766,10 +1766,10 @@
               error();
             }
           };
-          if (typeof Promise !== "undefined" && Howler4.ctx.decodeAudioData.length === 1) {
-            Howler4.ctx.decodeAudioData(arraybuffer).then(success).catch(error);
+          if (typeof Promise !== "undefined" && Howler3.ctx.decodeAudioData.length === 1) {
+            Howler3.ctx.decodeAudioData(arraybuffer).then(success).catch(error);
           } else {
-            Howler4.ctx.decodeAudioData(arraybuffer, success, error);
+            Howler3.ctx.decodeAudioData(arraybuffer, success, error);
           }
         };
         var loadSound = function(self, buffer) {
@@ -1786,59 +1786,59 @@
           }
         };
         var setupAudioContext = function() {
-          if (!Howler4.usingWebAudio) {
+          if (!Howler3.usingWebAudio) {
             return;
           }
           try {
             if (typeof AudioContext !== "undefined") {
-              Howler4.ctx = new AudioContext();
+              Howler3.ctx = new AudioContext();
             } else if (typeof webkitAudioContext !== "undefined") {
-              Howler4.ctx = new webkitAudioContext();
+              Howler3.ctx = new webkitAudioContext();
             } else {
-              Howler4.usingWebAudio = false;
+              Howler3.usingWebAudio = false;
             }
           } catch (e6) {
-            Howler4.usingWebAudio = false;
+            Howler3.usingWebAudio = false;
           }
-          if (!Howler4.ctx) {
-            Howler4.usingWebAudio = false;
+          if (!Howler3.ctx) {
+            Howler3.usingWebAudio = false;
           }
-          var iOS = /iP(hone|od|ad)/.test(Howler4._navigator && Howler4._navigator.platform);
-          var appVersion = Howler4._navigator && Howler4._navigator.appVersion.match(/OS (\d+)_(\d+)_?(\d+)?/);
+          var iOS = /iP(hone|od|ad)/.test(Howler3._navigator && Howler3._navigator.platform);
+          var appVersion = Howler3._navigator && Howler3._navigator.appVersion.match(/OS (\d+)_(\d+)_?(\d+)?/);
           var version = appVersion ? parseInt(appVersion[1], 10) : null;
           if (iOS && version && version < 9) {
-            var safari = /safari/.test(Howler4._navigator && Howler4._navigator.userAgent.toLowerCase());
-            if (Howler4._navigator && !safari) {
-              Howler4.usingWebAudio = false;
+            var safari = /safari/.test(Howler3._navigator && Howler3._navigator.userAgent.toLowerCase());
+            if (Howler3._navigator && !safari) {
+              Howler3.usingWebAudio = false;
             }
           }
-          if (Howler4.usingWebAudio) {
-            Howler4.masterGain = typeof Howler4.ctx.createGain === "undefined" ? Howler4.ctx.createGainNode() : Howler4.ctx.createGain();
-            Howler4.masterGain.gain.setValueAtTime(Howler4._muted ? 0 : Howler4._volume, Howler4.ctx.currentTime);
-            Howler4.masterGain.connect(Howler4.ctx.destination);
+          if (Howler3.usingWebAudio) {
+            Howler3.masterGain = typeof Howler3.ctx.createGain === "undefined" ? Howler3.ctx.createGainNode() : Howler3.ctx.createGain();
+            Howler3.masterGain.gain.setValueAtTime(Howler3._muted ? 0 : Howler3._volume, Howler3.ctx.currentTime);
+            Howler3.masterGain.connect(Howler3.ctx.destination);
           }
-          Howler4._setup();
+          Howler3._setup();
         };
         if (typeof define === "function" && define.amd) {
           define([], function() {
             return {
-              Howler: Howler4,
+              Howler: Howler3,
               Howl: Howl3
             };
           });
         }
         if (typeof exports !== "undefined") {
-          exports.Howler = Howler4;
+          exports.Howler = Howler3;
           exports.Howl = Howl3;
         }
         if (typeof global !== "undefined") {
           global.HowlerGlobal = HowlerGlobal2;
-          global.Howler = Howler4;
+          global.Howler = Howler3;
           global.Howl = Howl3;
           global.Sound = Sound2;
         } else if (typeof window !== "undefined") {
           window.HowlerGlobal = HowlerGlobal2;
-          window.Howler = Howler4;
+          window.Howler = Howler3;
           window.Howl = Howl3;
           window.Sound = Sound2;
         }
@@ -3950,55 +3950,52 @@
   };
   customElements.define("gameboy-console", GameboyConsole);
 
-  // src-player/visualizer/ProjectMController.js
+  // src-player/visualizer/ButterchurnController.js
   var STORAGE_ENABLED = "gamedude.vizEnabled";
   var STORAGE_OPACITY = "gamedude.vizOpacity";
   var STORAGE_VIBE = "gamedude.vibe";
   function vendorBaseUrl() {
-    return new URL("./public/vendor/projectm/", window.location.href).href;
+    return new URL("./public/vendor/butterchurn/", window.location.href).href;
   }
   function supportsWebGL2() {
     try {
+      const api = window.butterchurn?.default ?? window.butterchurn;
+      if (typeof api?.isSupported === "function") {
+        return api.isSupported();
+      }
       const canvas = document.createElement("canvas");
       return !!canvas.getContext("webgl2");
     } catch {
       return false;
     }
   }
-  function resolveProjectMFactory() {
-    if (typeof window.createProjectMModule === "function") {
-      return Promise.resolve(window.createProjectMModule);
+  function resolveButterchurn() {
+    const api = window.butterchurn?.default ?? window.butterchurn;
+    if (api?.createVisualizer) {
+      return Promise.resolve(api);
     }
     return Promise.reject(
       new Error(
-        "projectm.js not loaded. Ensure gamedude-player.html includes ./public/vendor/projectm/projectm.js"
+        "butterchurn not loaded. Ensure gamedude-player.html includes ./public/vendor/butterchurn/butterchurn.iife.js"
       )
     );
   }
-  function normalizePresetPath(path) {
-    return String(path ?? "").trim().replace(/\\/g, "/").replace(/^\/+/, "");
-  }
-  function parsePresetManifest(text) {
-    try {
-      const json = JSON.parse(text);
-      const entries = Array.isArray(json) ? json : json?.presets;
-      if (Array.isArray(entries)) {
-        return entries.map(
-          (entry) => normalizePresetPath(
-            typeof entry === "string" ? entry : entry?.sourcePath ?? entry?.path ?? ""
-          )
-        ).filter(Boolean);
+  function getHowlerAudioContext() {
+    if (typeof Howler === "undefined") return null;
+    if (!Howler.ctx) {
+      try {
+        Howler.volume();
+      } catch {
+        return null;
       }
-    } catch {
     }
-    return text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith("#")).map(normalizePresetPath).filter(Boolean);
+    return Howler.ctx ?? null;
   }
-  function sourceVibe(sourcePath) {
-    const normalized = normalizePresetPath(sourcePath);
-    const [topLevel] = normalized.split("/");
-    return topLevel && !topLevel.startsWith("preset_") && topLevel !== "presets" ? topLevel : "Visuals";
+  function getHowlerMasterGain() {
+    if (typeof Howler === "undefined") return null;
+    return Howler.masterGain ?? null;
   }
-  var ProjectMController = class {
+  var ButterchurnController = class {
     constructor(hostEl, controlsEl) {
       this.hostEl = hostEl;
       this.controlsEl = controlsEl;
@@ -4006,27 +4003,25 @@
       this.opacity = parseFloat(localStorage.getItem(STORAGE_OPACITY) ?? "0.88");
       this.audioActive = false;
       this.onEnabledChange = null;
-      this._module = null;
+      this._visualizer = null;
       this._raf = null;
       this._resizeObserver = null;
       this._statusEl = null;
       this._errorEl = null;
       this._error = null;
       this._ready = false;
-      this._pcmPtr = 0;
-      this._pcmCapacity = 0;
-      this._presetManifest = [];
-      this._runtimePresets = [];
+      this._catalog = [];
       this._vibeSelect = null;
       this._vibeBusy = false;
       this._queuedVibeApply = false;
+      this._currentPresetSlug = null;
       this._random = Math.random;
-      this._wasmBase = vendorBaseUrl();
-      this._scriptUrl = new URL("projectm.js", this._wasmBase).href;
+      this._vendorBase = vendorBaseUrl();
+      this._extraImagesLoaded = false;
       document.documentElement.style.setProperty("--viz-opacity", String(this.opacity));
       this._buildControls();
-      this._loadPresetManifest().catch((err) => {
-        console.warn("[projectM] preset manifest load failed", err);
+      this._loadCatalog().catch((err) => {
+        console.warn("[butterchurn] preset catalog load failed", err);
       });
       this._applyEnabledState();
       if (!supportsWebGL2()) {
@@ -4047,20 +4042,13 @@
         this._stopLoop();
       }
     }
-    /** @param {import('./ProjectMAudioTap.js').ProjectMAudioTap} tap */
-    wireAudioTap(tap) {
-      tap.setPcmHandler((interleaved, samplesPerChannel) => {
-        if (!this._module || !this.enabled || !this.audioActive) return;
-        this._feedPcm(interleaved, samplesPerChannel);
-      });
-    }
     async enable() {
       if (this._error) return;
       this.enabled = true;
       localStorage.setItem(STORAGE_ENABLED, "true");
       this.hostEl.classList.remove("is-disabled");
-      if (!this._module) {
-        await this._loadModule();
+      if (!this._visualizer) {
+        await this._initVisualizer();
       }
       if (this._ready) {
         await this._applySelectedVibe({ forceNew: true });
@@ -4075,6 +4063,7 @@
       localStorage.setItem(STORAGE_ENABLED, "false");
       this.hostEl.classList.add("is-disabled");
       this._stopLoop();
+      this._disconnectAudio();
       this.onEnabledChange?.(false);
     }
     _buildControls() {
@@ -4137,42 +4126,23 @@
         this.enable().catch((err) => this._setError(err.message));
       }
     }
-    async _loadPresetManifest() {
-      const candidates = [
-        new URL("public/vendor/projectm/bundled-presets.json", window.location.href).href,
-        new URL("scripts/projectm-preset-manifest.txt", window.location.href).href
-      ];
-      for (const url of candidates) {
-        try {
-          const response = await fetch(url);
-          if (!response.ok) continue;
-          const entries = parsePresetManifest(await response.text());
-          if (entries.length) {
-            this._presetManifest = entries;
-            this._buildVibeOptions(entries);
-            if (this._ready) {
-              this._syncRuntimePresets();
-              await this._applySelectedVibe({ forceNew: true });
-            }
-            return;
-          }
-        } catch (err) {
-          console.warn("[projectM] failed to load preset manifest", err);
-        }
+    async _loadCatalog() {
+      const url = new URL("preset-catalog.json", this._vendorBase).href;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Could not load preset catalog (${response.status})`);
       }
-      this._buildVibeOptions([]);
+      this._catalog = await response.json();
+      this._buildVibeOptions();
+      if (this._ready) {
+        await this._applySelectedVibe({ forceNew: true });
+      }
     }
-    _buildVibeOptions(entries) {
+    _buildVibeOptions() {
       if (!this._vibeSelect) return;
       const groups = /* @__PURE__ */ new Map();
-      for (const entry of entries) {
-        const vibe = sourceVibe(entry);
-        groups.set(vibe, (groups.get(vibe) ?? 0) + 1);
-      }
-      if (!groups.size && this._runtimePresets.length) {
-        for (const preset of this._runtimePresets) {
-          groups.set(preset.vibe, (groups.get(preset.vibe) ?? 0) + 1);
-        }
+      for (const entry of this._catalog) {
+        groups.set(entry.vibe, (groups.get(entry.vibe) ?? 0) + 1);
       }
       this._vibeSelect.innerHTML = "";
       if (!groups.size) {
@@ -4195,41 +4165,14 @@
       }
       this._vibeSelect.disabled = false;
     }
-    _syncRuntimePresets() {
-      if (!this._module || !this._ready) return;
-      const runtimePresets = [];
-      const count = this._module.ccall("pm_get_preset_count", "number", [], []);
-      for (let index = 0; index < count; index++) {
-        const runtimePath = this._module.ccall("pm_get_preset_path", "string", ["number"], [index]);
-        const sourcePath = this._presetManifest[index] ?? runtimePath;
-        runtimePresets.push({
-          index,
-          runtimePath,
-          sourcePath,
-          vibe: sourceVibe(sourcePath)
-        });
-      }
-      this._runtimePresets = runtimePresets;
-      if (!this._presetManifest.length) {
-        this._buildVibeOptions([]);
-      }
-    }
     _getSelectedVibePresets() {
-      if (!this._runtimePresets.length || !this._vibeSelect) return [];
+      if (!this._catalog.length || !this._vibeSelect) return [];
       const vibe = this._vibeSelect.value;
       if (!vibe || vibe === "__none__") return [];
-      return this._runtimePresets.filter((preset) => preset.vibe === vibe);
-    }
-    _getCurrentPresetIndex() {
-      if (!this._module) return -1;
-      try {
-        return this._module.ccall("pm_get_preset_index", "number", [], []);
-      } catch {
-        return -1;
-      }
+      return this._catalog.filter((entry) => entry.vibe === vibe);
     }
     async _applySelectedVibe({ forceNew = false } = {}) {
-      if (!this._module || !this._ready) return;
+      if (!this._visualizer || !this._ready) return;
       if (this._vibeBusy) {
         this._queuedVibeApply = true;
         return;
@@ -4238,10 +4181,9 @@
       if (!candidates.length) return;
       this._vibeBusy = true;
       try {
-        const currentIndex = this._getCurrentPresetIndex();
-        const pool = forceNew && candidates.length > 1 ? candidates.filter((preset) => preset.index !== currentIndex) : candidates;
+        const pool = forceNew && candidates.length > 1 ? candidates.filter((entry) => entry.slug !== this._currentPresetSlug) : candidates;
         const pick = pool[Math.floor(this._random() * pool.length)] ?? candidates[0];
-        await this._selectRuntimePreset(pick.index);
+        await this._loadPresetEntry(pick);
       } finally {
         this._vibeBusy = false;
         if (this._queuedVibeApply) {
@@ -4250,33 +4192,19 @@
         }
       }
     }
-    async _selectRuntimePreset(targetIndex) {
-      if (!this._module || !this._ready) return;
-      const count = this._module.ccall("pm_get_preset_count", "number", [], []);
-      if (!count || targetIndex < 0 || targetIndex >= count) return;
-      const shouldResume = Boolean(this._raf) || this.enabled && this.audioActive;
-      this._stopLoop();
-      try {
-        const currentIndex = this._getCurrentPresetIndex();
-        let delta = targetIndex - currentIndex;
-        if (Math.abs(delta) > count / 2) {
-          delta += delta > 0 ? -count : count;
-        }
-        const functionName = delta < 0 ? "pm_prev_preset" : "pm_next_preset";
-        for (let step = 0; step < Math.abs(delta); step++) {
-          this._module.ccall(functionName, null, [], []);
-        }
-        const selectedPreset = this._runtimePresets[targetIndex];
-        if (selectedPreset) {
-          this.hostEl.dataset.vizVibe = selectedPreset.vibe;
-          this.hostEl.dataset.vizPresetIndex = String(selectedPreset.index);
-        }
-        this._renderFrameOnce();
-      } finally {
-        if (shouldResume && this.enabled && this._ready) {
-          this._startLoop();
-        }
+    async _loadPresetEntry(entry) {
+      const presetUrl = new URL(entry.url, this._vendorBase).href;
+      const response = await fetch(presetUrl);
+      if (!response.ok) {
+        throw new Error(`Could not load preset (${response.status})`);
       }
+      const presetJson = await response.json();
+      await this._visualizer.loadPreset(presetJson, 1.5);
+      this._currentPresetSlug = entry.slug;
+      this.hostEl.dataset.vizVibe = entry.vibe;
+      this.hostEl.dataset.vizPresetSlug = entry.slug;
+      this.hostEl.dataset.vizPresetIndex = String(entry.index);
+      this._renderFrameOnce();
     }
     _setError(message) {
       this._error = message;
@@ -4287,7 +4215,7 @@
       if (this._statusEl) {
         this._statusEl.textContent = message;
       }
-      console.error("[projectM]", message);
+      console.error("[butterchurn]", message);
     }
     _applyEnabledState() {
       if (!this._statusEl && this.enabled && !this._ready) {
@@ -4302,74 +4230,112 @@
       const height = Math.max(1, Math.round(this.hostEl.clientHeight || window.innerHeight));
       return { width, height };
     }
-    async _loadModule() {
+    async _initVisualizer() {
       this._applyEnabledState();
       if (this._statusEl) {
         this._statusEl.textContent = "Loading Milkdrop visualizer...";
       }
+      const audioCtx = getHowlerAudioContext();
+      if (!audioCtx) {
+        throw new Error("Web Audio is not available yet. Start playback once, then enable Viz.");
+      }
       const canvas = this._getOrCreateCanvas();
       const { width, height } = this._hostSize();
+      const pixelRatio = window.devicePixelRatio || 1;
       try {
-        const factory = await resolveProjectMFactory();
-        this._module = await factory({
-          canvas,
-          locateFile: (path) => new URL(path, this._wasmBase).href,
-          scriptDirectory: this._wasmBase,
-          mainScriptUrlOrBlob: this._scriptUrl,
-          print: (text) => console.log("[projectM]", text),
-          printErr: (text) => console.error("[projectM]", text)
+        const butterchurn = await resolveButterchurn();
+        this._visualizer = butterchurn.createVisualizer(audioCtx, canvas, {
+          width,
+          height,
+          pixelRatio
         });
-        const ok = this._module.ccall("pm_init", "number", ["number", "number"], [width, height]);
-        if (!ok) {
-          throw new Error("projectM failed to initialize (SDL/WebGL). Check the browser console.");
-        }
+        await this._loadExtraImages();
+        this._connectAudio();
         this._ready = true;
-        this._module.ccall("pm_set_preset_locked", null, ["number"], [1]);
-        try {
-          this._module.ccall("pm_set_auto_preset_switch_enabled", null, ["number"], [0]);
-          const presetCount = this._module.ccall("pm_get_preset_count", "number", [], []);
-          console.log(`[projectM] presets loaded: ${presetCount}`);
-        } catch {
-        }
-        this._syncRuntimePresets();
         if (this._statusEl) {
           this._statusEl.remove();
           this._statusEl = null;
         }
         this._resize();
+        if (this._catalog.length) {
+          this._buildVibeOptions();
+        }
       } catch (err) {
-        const message = err?.message?.includes("fetch") || err?.message?.includes("wasm") ? `Could not load visualizer (${err.message}). Ensure public/vendor/projectm/ exists.` : err?.message || String(err);
+        const message = err?.message?.includes("fetch") || err?.message?.includes("butterchurn") ? `Could not load visualizer (${err.message}). Ensure public/vendor/butterchurn/ exists.` : err?.message || String(err);
         this._setError(message);
         throw err;
+      }
+    }
+    async _loadExtraImages() {
+      if (this._extraImagesLoaded || !this._visualizer?.loadExtraImages) {
+        return;
+      }
+      try {
+        const imageDir = new URL("imageData/", this._vendorBase).href;
+        const manifestUrl = new URL("imageData/manifest.json", this._vendorBase).href;
+        const response = await fetch(manifestUrl);
+        if (!response.ok) return;
+        const files = await response.json();
+        if (!Array.isArray(files) || !files.length) return;
+        const imageMap = {};
+        await Promise.all(
+          files.map(async (name) => {
+            const imageResponse = await fetch(new URL(name, imageDir));
+            if (!imageResponse.ok) return;
+            const blob = await imageResponse.blob();
+            imageMap[name] = await createImageBitmap(blob);
+          })
+        );
+        if (Object.keys(imageMap).length) {
+          this._visualizer.loadExtraImages(imageMap);
+        }
+        this._extraImagesLoaded = true;
+      } catch (err) {
+        console.warn("[butterchurn] extra image preload skipped", err);
+      }
+    }
+    _connectAudio() {
+      const masterGain = getHowlerMasterGain();
+      if (this._visualizer && masterGain) {
+        this._visualizer.connectAudio(masterGain);
+      }
+    }
+    _disconnectAudio() {
+      if (this._visualizer?.disconnectAudio) {
+        try {
+          this._visualizer.disconnectAudio();
+        } catch {
+        }
       }
     }
     _getOrCreateCanvas() {
       let canvas = this.hostEl.querySelector("canvas");
       if (!canvas) {
         canvas = document.createElement("canvas");
-        canvas.id = "projectm-canvas";
+        canvas.id = "viz-canvas";
         this.hostEl.prepend(canvas);
       }
       return canvas;
     }
     _resize() {
-      if (!this._module || !this._ready) return;
+      if (!this._visualizer || !this._ready) return;
       const { width, height } = this._hostSize();
-      this._module.ccall("pm_resize", null, ["number", "number"], [width, height]);
+      const pixelRatio = window.devicePixelRatio || 1;
+      this._visualizer.setRendererSize(width, height, { pixelRatio });
     }
     _renderFrameOnce() {
-      if (!this._module || !this._ready) return;
+      if (!this._visualizer || !this._ready) return;
       try {
-        this._module.ccall("pm_render_frame", null, [], []);
+        this._visualizer.render();
       } catch (err) {
         this._setError(err?.message || "Render failed");
       }
     }
     _startLoop() {
-      if (this._raf || !this._module) return;
+      if (this._raf || !this._visualizer) return;
       const tick = () => {
         this._raf = requestAnimationFrame(tick);
-        if (!this.enabled || !this._ready) return;
+        if (!this.enabled || !this._ready || !this.audioActive) return;
         this._renderFrameOnce();
       };
       this._raf = requestAnimationFrame(tick);
@@ -4379,94 +4345,6 @@
         cancelAnimationFrame(this._raf);
         this._raf = null;
       }
-    }
-    _ensurePcmBuffer(byteLen) {
-      if (!this._module) return 0;
-      if (this._pcmPtr && this._pcmCapacity >= byteLen) {
-        return this._pcmPtr;
-      }
-      if (this._pcmPtr) {
-        this._module._free(this._pcmPtr);
-        this._pcmPtr = 0;
-        this._pcmCapacity = 0;
-      }
-      this._pcmPtr = this._module._malloc(byteLen);
-      this._pcmCapacity = byteLen;
-      return this._pcmPtr;
-    }
-    _feedPcm(interleaved, samplesPerChannel) {
-      const module = this._module;
-      if (!module || !interleaved.length) return;
-      const byteLen = interleaved.length * 4;
-      const ptr = this._ensurePcmBuffer(byteLen);
-      if (!ptr) return;
-      module.HEAPF32.set(interleaved, ptr >> 2);
-      module.ccall(
-        "pm_feed_pcm",
-        null,
-        ["number", "number", "number"],
-        [ptr, samplesPerChannel, 2]
-      );
-    }
-  };
-
-  // src-player/visualizer/ProjectMAudioTap.js
-  var import_howler3 = __toESM(require_howler(), 1);
-  var BUFFER_SIZE = 1024;
-  var ProjectMAudioTap = class {
-    constructor() {
-      this.onPcm = null;
-      this._processor = null;
-      this._wired = false;
-      this._stereoScratch = new Float32Array(BUFFER_SIZE * 2);
-    }
-    /** @param {(interleaved: Float32Array, samplesPerChannel: number) => void} handler */
-    setPcmHandler(handler) {
-      this.onPcm = handler;
-    }
-    start() {
-      this._ensureGraph();
-      if (!this._processor) return;
-      if (this._processor.context?.state === "suspended") {
-        this._processor.context.resume().catch(() => {
-        });
-      }
-    }
-    stop() {
-    }
-    _ensureGraph() {
-      const ctx = import_howler3.Howler.ctx;
-      if (!ctx || this._wired) return;
-      try {
-        this._processor = ctx.createScriptProcessor(BUFFER_SIZE, 2, 2);
-      } catch {
-        return;
-      }
-      this._processor.onaudioprocess = (event) => {
-        const inL = event.inputBuffer.getChannelData(0);
-        const inR = event.inputBuffer.numberOfChannels > 1 ? event.inputBuffer.getChannelData(1) : inL;
-        const outL = event.outputBuffer.getChannelData(0);
-        const outR = event.outputBuffer.numberOfChannels > 1 ? event.outputBuffer.getChannelData(1) : outL;
-        const len = inL.length;
-        if (len * 2 > this._stereoScratch.length) {
-          this._stereoScratch = new Float32Array(len * 2);
-        }
-        const scratch = this._stereoScratch;
-        for (let i6 = 0; i6 < len; i6++) {
-          const l3 = inL[i6];
-          const r4 = inR[i6];
-          scratch[i6 * 2] = l3;
-          scratch[i6 * 2 + 1] = r4;
-          outL[i6] = 0;
-          outR[i6] = 0;
-        }
-        this.onPcm?.(scratch.subarray(0, len * 2), len);
-      };
-      const master = import_howler3.Howler.masterGain;
-      if (!master) return;
-      master.connect(this._processor);
-      this._processor.connect(ctx.destination);
-      this._wired = true;
     }
   };
 
@@ -4490,28 +4368,20 @@
     const gb = document.querySelector("gameboy-console");
     return gb?.shadowRoot?.querySelector("game-dude-menu-screen")?.catalog ?? null;
   }
-  function initProjectMVisualizer() {
-    const hostEl = document.getElementById("projectm-host");
+  function initVisualizer() {
+    const hostEl = document.getElementById("viz-host");
     const controlsEl = document.getElementById("viz-controls");
     if (!hostEl || !controlsEl) return;
-    const viz = new ProjectMController(hostEl, controlsEl);
-    const tap = new ProjectMAudioTap();
-    viz.wireAudioTap(tap);
+    const viz = new ButterchurnController(hostEl, controlsEl);
     const attachCatalog = () => {
       const catalog = getMenuCatalog();
       if (!catalog) {
         requestAnimationFrame(attachCatalog);
         return;
       }
-      catalog.audioTap = tap;
       const syncVizWithPlayback = () => {
         const shouldRun = !!catalog.isPlaying?.() && viz.isEnabled;
         viz.setAudioActive(shouldRun);
-        if (shouldRun) {
-          tap.start();
-        } else {
-          tap.stop();
-        }
       };
       viz.onEnabledChange = () => {
         syncVizWithPlayback();
@@ -4519,11 +4389,6 @@
       const prevOnPlayStateChange = catalog.onPlayStateChange;
       catalog.onPlayStateChange = (playing) => {
         viz.setAudioActive(playing && viz.isEnabled);
-        if (playing && viz.isEnabled) {
-          tap.start();
-        } else {
-          tap.stop();
-        }
         prevOnPlayStateChange?.(playing);
       };
       syncVizWithPlayback();
@@ -4531,9 +4396,9 @@
     attachCatalog();
   }
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initProjectMVisualizer);
+    document.addEventListener("DOMContentLoaded", initVisualizer);
   } else {
-    initProjectMVisualizer();
+    initVisualizer();
   }
   document.addEventListener("keydown", (e6) => {
     const mapped = KEY_MAP[e6.key];

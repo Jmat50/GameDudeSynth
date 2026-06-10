@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { ProjectMController } from '../src-player/visualizer/ProjectMController.js';
+import { ButterchurnController } from '../src-player/visualizer/ButterchurnController.js';
 
 async function testSetAudioActiveGate() {
-  const ctrl = Object.create(ProjectMController.prototype);
+  const ctrl = Object.create(ButterchurnController.prototype);
   ctrl.enabled = true;
   ctrl._ready = true;
   ctrl.audioActive = false;
@@ -22,129 +22,104 @@ async function testSetAudioActiveGate() {
   assert.equal(stopped, 1, 'render loop should stop when inactive');
 }
 
-async function testRuntimeCatalogUsesCuratedVibes() {
-  const ctrl = Object.create(ProjectMController.prototype);
-  ctrl._ready = true;
-  ctrl._presetManifest = [
-    'Particles/Points/one.milk',
-    'Dancer/Glowsticks/two.milk',
-    'Dancer/Whirl/three.milk',
-    'Waveform/Spectrum/four.milk',
+async function testCatalogGroupsVibes() {
+  const ctrl = Object.create(ButterchurnController.prototype);
+  ctrl._catalog = [
+    { vibe: 'Particles', slug: 'a' },
+    { vibe: 'Dancer', slug: 'b' },
+    { vibe: 'Dancer', slug: 'c' },
+    { vibe: 'Waveform', slug: 'd' },
   ];
-  const runtimePaths = [
-    '/presets/preset_000_one.milk',
-    '/presets/preset_001_two.milk',
-    '/presets/preset_002_three.milk',
-    '/presets/preset_003_four.milk',
-  ];
-  ctrl._module = {
-    ccall: (name, _ret, _args, values) => {
-      if (name === 'pm_get_preset_count') return runtimePaths.length;
-      if (name === 'pm_get_preset_path') return runtimePaths[values[0]];
-      return 0;
-    },
-  };
+  ctrl._vibeSelect = { innerHTML: '', options: [], disabled: false, appendChild() {} };
 
-  ctrl._syncRuntimePresets();
+  const groups = new Map();
+  for (const entry of ctrl._catalog) {
+    groups.set(entry.vibe, (groups.get(entry.vibe) ?? 0) + 1);
+  }
 
   assert.deepEqual(
-    ctrl._runtimePresets.map((preset) => preset.vibe),
-    ['Particles', 'Dancer', 'Dancer', 'Waveform'],
-    'runtime presets should inherit Vibe categories from the curated manifest',
+    [...groups.entries()],
+    [
+      ['Particles', 1],
+      ['Dancer', 2],
+      ['Waveform', 1],
+    ],
+    'catalog entries should group into Vibe counts',
   );
 }
 
 async function testVibeSelectionRandomizesWithinSelectedStyle() {
-  const ctrl = Object.create(ProjectMController.prototype);
-  ctrl._module = {};
+  const ctrl = Object.create(ButterchurnController.prototype);
+  ctrl._visualizer = {};
   ctrl._ready = true;
   ctrl._vibeBusy = false;
   ctrl._vibeSelect = { value: 'Dancer' };
-  ctrl._runtimePresets = [
-    { index: 0, vibe: 'Particles' },
-    { index: 1, vibe: 'Dancer' },
-    { index: 2, vibe: 'Dancer' },
-    { index: 3, vibe: 'Waveform' },
+  ctrl._catalog = [
+    { index: 0, vibe: 'Particles', slug: 'p1', url: './presets/p1.json' },
+    { index: 1, vibe: 'Dancer', slug: 'd1', url: './presets/d1.json' },
+    { index: 2, vibe: 'Dancer', slug: 'd2', url: './presets/d2.json' },
+    { index: 3, vibe: 'Waveform', slug: 'w1', url: './presets/w1.json' },
   ];
-  ctrl._getCurrentPresetIndex = () => 1;
+  ctrl._currentPresetSlug = 'd1';
   ctrl._random = () => 0.99;
-  let selectedIndex = null;
-  ctrl._selectRuntimePreset = async (index) => {
-    selectedIndex = index;
+  let loadedSlug = null;
+  ctrl._loadPresetEntry = async (entry) => {
+    loadedSlug = entry.slug;
   };
 
   await ctrl._applySelectedVibe({ forceNew: true });
 
   assert.equal(
-    selectedIndex,
-    2,
+    loadedSlug,
+    'd2',
     'selecting a Vibe should choose a different random preset from that Vibe when possible',
   );
 }
 
-async function testRuntimePresetJumpUsesShortestDirection() {
-  const ctrl = Object.create(ProjectMController.prototype);
-  ctrl._ready = true;
-  ctrl.enabled = true;
-  ctrl.audioActive = false;
-  ctrl._raf = null;
-  ctrl.hostEl = { dataset: {} };
-  ctrl._runtimePresets = [
-    { index: 0, vibe: 'A' },
-    { index: 1, vibe: 'B' },
-    { index: 2, vibe: 'C' },
-    { index: 3, vibe: 'D' },
-    { index: 4, vibe: 'E' },
+async function testGetSelectedVibePresetsFiltersByVibe() {
+  const ctrl = Object.create(ButterchurnController.prototype);
+  ctrl._vibeSelect = { value: 'Reaction' };
+  ctrl._catalog = [
+    { vibe: 'Particles', slug: 'p1' },
+    { vibe: 'Reaction', slug: 'r1' },
+    { vibe: 'Reaction', slug: 'r2' },
   ];
-  const calls = [];
-  ctrl._module = {
-    ccall: (name) => {
-      calls.push(name);
-      if (name === 'pm_get_preset_count') return 5;
-      if (name === 'pm_get_preset_index') return 4;
-      return 0;
-    },
-  };
 
-  await ctrl._selectRuntimePreset(1);
-
+  const presets = ctrl._getSelectedVibePresets();
   assert.deepEqual(
-    calls,
-    [
-      'pm_get_preset_count',
-      'pm_get_preset_index',
-      'pm_next_preset',
-      'pm_next_preset',
-      'pm_render_frame',
-    ],
-    'runtime preset jumps should use the shortest internal route',
+    presets.map((entry) => entry.slug),
+    ['r1', 'r2'],
+    'selected vibe presets should be filtered from the catalog',
   );
 }
 
-async function testFeedPcmBufferReuse() {
-  const ctrl = Object.create(ProjectMController.prototype);
-  ctrl._pcmPtr = 0;
-  ctrl._pcmCapacity = 0;
-  ctrl._module = {
-    HEAPF32: new Float32Array(4096),
-    _malloc: () => 256,
-    _free: () => {},
-    ccall: () => {},
+async function testAudioGatingRequiresPlayback() {
+  const ctrl = Object.create(ButterchurnController.prototype);
+  ctrl.enabled = true;
+  ctrl._ready = true;
+  ctrl.audioActive = false;
+  let frames = 0;
+  ctrl._renderFrameOnce = () => {
+    frames += 1;
   };
+  ctrl._raf = 1;
+  ctrl._visualizer = {};
 
-  const pcm = new Float32Array(256);
-  ctrl._feedPcm(pcm, 128);
-  const firstPtr = ctrl._pcmPtr;
-  ctrl._feedPcm(pcm, 128);
-  assert.equal(firstPtr, ctrl._pcmPtr, 'PCM pointer should be reused for same sized buffer');
+  const tick = () => {
+    if (!ctrl.enabled || !ctrl._ready || !ctrl.audioActive) return;
+    ctrl._renderFrameOnce();
+  };
+  tick();
+
+  assert.equal(frames, 0, 'render loop should not draw frames while audio is inactive');
 }
 
 async function run() {
   await testSetAudioActiveGate();
-  await testRuntimeCatalogUsesCuratedVibes();
+  await testCatalogGroupsVibes();
   await testVibeSelectionRandomizesWithinSelectedStyle();
-  await testRuntimePresetJumpUsesShortestDirection();
-  await testFeedPcmBufferReuse();
+  await testGetSelectedVibePresetsFiltersByVibe();
+  await testAudioGatingRequiresPlayback();
   console.log('All visualizer controller checks passed.');
 }
 

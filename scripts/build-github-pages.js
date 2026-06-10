@@ -1,8 +1,8 @@
 /**
  * Assemble GameDudeSynth under /GameDudeSynth/ for jmat50.github.io.
- * Run after build:all, demos:manifest, and verify-projectm-vendor.
+ * Run after build:all, demos:manifest, and verify-butterchurn-vendor.
  */
-import { cpSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -10,15 +10,22 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'dist', 'github-pages');
 const siteRoot = join(out, 'GameDudeSynth');
 
-const PROJECTM_FILES = ['projectm.js', 'projectm.wasm', 'projectm.data', 'bundled-presets.json'];
+const BUTTERCHURN_FILES = ['butterchurn.iife.js', 'preset-catalog.json'];
 
-function assertProjectMBundle() {
-  const vendorDir = join(root, 'public', 'vendor', 'projectm');
-  for (const name of PROJECTM_FILES) {
+function assertButterchurnBundle() {
+  const vendorDir = join(root, 'public', 'vendor', 'butterchurn');
+  for (const name of BUTTERCHURN_FILES) {
     const path = join(vendorDir, name);
     if (!existsSync(path)) {
-      throw new Error(`Missing ${path} — run scripts/build-projectm-wasm.ps1 then commit public/vendor/projectm/`);
+      throw new Error(`Missing ${path} — run npm run build:butterchurn then commit public/vendor/butterchurn/`);
     }
+  }
+  const presetsDir = join(vendorDir, 'presets');
+  const presetCount = existsSync(presetsDir)
+    ? readdirSync(presetsDir).filter((name) => name.endsWith('.json')).length
+    : 0;
+  if (presetCount < 40) {
+    throw new Error(`Expected 40 presets in ${presetsDir}, found ${presetCount}`);
   }
 }
 
@@ -31,12 +38,17 @@ function writePlayerHtml(destPath) {
   writeFileSync(destPath, html, 'utf8');
 }
 
-function copyProjectMIntoPagesPublic() {
-  const srcDir = join(root, 'public', 'vendor', 'projectm');
-  const destDir = join(siteRoot, 'public', 'vendor', 'projectm');
+function copyButterchurnIntoPagesPublic() {
+  const srcDir = join(root, 'public', 'vendor', 'butterchurn');
+  const destDir = join(siteRoot, 'public', 'vendor', 'butterchurn');
   mkdirSync(destDir, { recursive: true });
-  for (const name of PROJECTM_FILES) {
+  for (const name of BUTTERCHURN_FILES) {
     copyFileSync(join(srcDir, name), join(destDir, name));
+  }
+  cpSync(join(srcDir, 'presets'), join(destDir, 'presets'), { recursive: true });
+  const imageData = join(srcDir, 'imageData');
+  if (existsSync(imageData)) {
+    cpSync(imageData, join(destDir, 'imageData'), { recursive: true });
   }
   const readme = join(srcDir, 'README.md');
   if (existsSync(readme)) {
@@ -47,13 +59,13 @@ function copyProjectMIntoPagesPublic() {
 rmSync(out, { recursive: true, force: true });
 mkdirSync(siteRoot, { recursive: true });
 
-assertProjectMBundle();
+assertButterchurnBundle();
 
 copyFileSync(join(root, 'engine.html'), join(siteRoot, 'engine.html'));
 writePlayerHtml(join(siteRoot, 'gamedude-player.html'));
 
 cpSync(join(root, 'public'), join(siteRoot, 'public'), { recursive: true });
-copyProjectMIntoPagesPublic();
+copyButterchurnIntoPagesPublic();
 
 cpSync(join(root, 'src-player'), join(siteRoot, 'src-player'), { recursive: true });
 cpSync(
@@ -81,16 +93,23 @@ writeFileSync(join(out, '.nojekyll'), '', 'utf8');
 
 const manifest = {
   builtAt: new Date().toISOString(),
-  projectm: Object.fromEntries(
-    PROJECTM_FILES.map((name) => {
-      const path = join(siteRoot, 'public', 'vendor', 'projectm', name);
+  butterchurn: Object.fromEntries(
+    BUTTERCHURN_FILES.map((name) => {
+      const path = join(siteRoot, 'public', 'vendor', 'butterchurn', name);
       return [name, statSync(path).size];
     }),
   ),
+  presetCount: readdirSync(join(siteRoot, 'public', 'vendor', 'butterchurn', 'presets')).filter((name) =>
+    name.endsWith('.json'),
+  ).length,
 };
-writeFileSync(join(siteRoot, 'public', 'vendor', 'projectm', 'pages-manifest.json'), JSON.stringify(manifest, null, 2));
+writeFileSync(
+  join(siteRoot, 'public', 'vendor', 'butterchurn', 'pages-manifest.json'),
+  JSON.stringify(manifest, null, 2),
+);
 
 console.log(`GitHub Pages site written to ${siteRoot}`);
-for (const [name, bytes] of Object.entries(manifest.projectm)) {
-  console.log(`  projectm/${name}: ${(bytes / 1024 / 1024).toFixed(2)} MiB`);
+for (const [name, bytes] of Object.entries(manifest.butterchurn)) {
+  console.log(`  butterchurn/${name}: ${(bytes / 1024).toFixed(1)} KiB`);
 }
+console.log(`  butterchurn/presets: ${manifest.presetCount} files`);

@@ -1,7 +1,6 @@
 import './components/GameDudeMenuScreen.js';
 import '../vendor/gameboycss/components/GameboyConsole.js';
-import { ProjectMController } from './visualizer/ProjectMController.js';
-import { ProjectMAudioTap } from './visualizer/ProjectMAudioTap.js';
+import { ButterchurnController } from './visualizer/ButterchurnController.js';
 
 const KEY_MAP = {
   ArrowUp: { action: 'dpad', direction: 'up' },
@@ -24,14 +23,12 @@ function getMenuCatalog() {
   return gb?.shadowRoot?.querySelector('game-dude-menu-screen')?.catalog ?? null;
 }
 
-function initProjectMVisualizer() {
-  const hostEl = document.getElementById('projectm-host');
+function initVisualizer() {
+  const hostEl = document.getElementById('viz-host');
   const controlsEl = document.getElementById('viz-controls');
   if (!hostEl || !controlsEl) return;
 
-  const viz = new ProjectMController(hostEl, controlsEl);
-  const tap = new ProjectMAudioTap();
-  viz.wireAudioTap(tap);
+  const viz = new ButterchurnController(hostEl, controlsEl);
 
   const attachCatalog = () => {
     const catalog = getMenuCatalog();
@@ -40,15 +37,9 @@ function initProjectMVisualizer() {
       return;
     }
 
-    catalog.audioTap = tap;
     const syncVizWithPlayback = () => {
       const shouldRun = !!catalog.isPlaying?.() && viz.isEnabled;
       viz.setAudioActive(shouldRun);
-      if (shouldRun) {
-        tap.start();
-      } else {
-        tap.stop();
-      }
     };
 
     viz.onEnabledChange = () => {
@@ -58,15 +49,9 @@ function initProjectMVisualizer() {
     const prevOnPlayStateChange = catalog.onPlayStateChange;
     catalog.onPlayStateChange = (playing) => {
       viz.setAudioActive(playing && viz.isEnabled);
-      if (playing && viz.isEnabled) {
-        tap.start();
-      } else {
-        tap.stop();
-      }
       prevOnPlayStateChange?.(playing);
     };
 
-    // Handle Viz toggle changes while a track is already playing.
     syncVizWithPlayback();
   };
 
@@ -74,9 +59,9 @@ function initProjectMVisualizer() {
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initProjectMVisualizer);
+  document.addEventListener('DOMContentLoaded', initVisualizer);
 } else {
-  initProjectMVisualizer();
+  initVisualizer();
 }
 
 document.addEventListener('keydown', (e) => {

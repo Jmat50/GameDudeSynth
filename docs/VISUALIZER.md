@@ -1,6 +1,6 @@
-# Background visualizer (projectM)
+# Background visualizer (butterchurn)
 
-The WAV player page (`gamedude-player.html`) can show a full-screen **Milkdrop-style** background behind the Game Boy UI. This is powered by [projectM](https://github.com/projectM-visualizer/projectm) compiled to WebAssembly.
+The WAV player page (`gamedude-player.html`) can show a full-screen **Milkdrop-style** background behind the Game Boy UI. This is powered by [butterchurn](https://github.com/jberg/butterchurn) (pure JavaScript + WebGL2).
 
 ## Controls (top-right)
 
@@ -9,7 +9,7 @@ These are **not** MIDI export settings and not per-track audio settings.
 | Control | What it does |
 |---------|--------------|
 | **Viz** | Turns the background visualizer on or off. |
-| **Vibe** | Chooses a visual style and randomly loads one bundled Milkdrop shader from that style. |
+| **Vibe** | Chooses a visual style and randomly loads one bundled Milkdrop preset from that style. |
 | **Dim** | Sets how strong the background appears (opacity over the page). Lower = more subtle. |
 
 Vibes still **react to the music** while playing (beat, level, spectrum). Selecting a new **Vibe** picks a random bundled visual from that category; there are no previous/next preset controls.
@@ -24,10 +24,10 @@ The full bundled catalog with categories is in [PRESETS.md](./PRESETS.md).
 
 ## Building / updating presets
 
-Presets are curated in [`scripts/projectm-preset-manifest.txt`](../scripts/projectm-preset-manifest.txt), mirrored to `public/vendor/projectm/bundled-presets.json` for the Vibe dropdown, and baked into `public/vendor/projectm/projectm.data` when you run:
+Presets are curated in [`scripts/butterchurn-preset-catalog.json`](../scripts/butterchurn-preset-catalog.json). The build step copies JSON files into `public/vendor/butterchurn/presets/` and writes `preset-catalog.json` for the Vibe dropdown:
 
-```powershell
-.\scripts\build-projectm-wasm.ps1
+```bash
+npm run build:butterchurn
 ```
 
-See [README.md](../README.md) - External Project Credits.
+See [README.md](../README.md) — External Project Credits.

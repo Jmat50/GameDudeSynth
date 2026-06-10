@@ -1,4 +1,4 @@
-#projectm-host {
+#viz-host {
   position: fixed;
   inset: 0;
   z-index: -1;
@@ -8,19 +8,19 @@
   background: #000;
 }
 
-#projectm-host.is-disabled {
+#viz-host.is-disabled {
   opacity: 0;
   visibility: hidden;
 }
 
-#projectm-host canvas {
+#viz-host canvas {
   display: block;
   width: 100% !important;
   height: 100% !important;
   object-fit: cover;
 }
 
-#projectm-host .viz-status {
+#viz-host .viz-status {
   position: absolute;
   inset: 0;
   display: flex;
