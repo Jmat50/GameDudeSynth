@@ -8,11 +8,11 @@ This repository is **GameDudeSynth**, a local Game Boy MIDI synthesis and WAV ex
 2. User opens `engine.html` over HTTP (not `file://`).
 3. User loads a local `.mid` file, optionally adjusts the **track assignment** table, renders offline, exports WAV.
 
-Optional: open `gamedude-player.html` to browse/play WAV files from `public/demos/` using the Game Boy menu UI. Toggle **Viz** for a full-screen [butterchurn](https://github.com/jberg/butterchurn) Milkdrop-style background (`public/vendor/butterchurn/` — build with `npm run build:butterchurn`).
+Optional: open `gamedude-player.html` to browse/play WAV files from `public/demos/` using the Game Boy menu UI. Toggle **Viz** for a full-screen [butterchurn](https://github.com/jberg/butterchurn) Milkdrop-style background (`public/vendor/butterchurn/` — build with `npm run build:butterchurn`). Use **Pack** + **Preset** dropdowns to pick from the full butterchurn-presets catalog (~504 presets).
 
 Live demo (GitHub Pages): [engine.html](https://jmat50.github.io/GameDudeSynth/engine.html) · [gamedude-player.html](https://jmat50.github.io/GameDudeSynth/gamedude-player.html)
 
-**GitHub Pages deploy** requires committed `public/vendor/butterchurn/` (IIFE + preset catalog + JSON presets). CI runs `npm run build:butterchurn` and `npm run verify:butterchurn` before `npm run build:pages`. Full local check: `npm run build:demo`.
+**GitHub Pages deploy** requires committed `public/vendor/butterchurn/` (IIFE + preset catalog + ~504 JSON presets). CI runs `npm run build:butterchurn` and `npm run verify:butterchurn` before `npm run build:pages`. Full local check: `npm run build:demo`.
 
 ## Core code (do not confuse with removed legacy)
 

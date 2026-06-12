@@ -1,6 +1,20 @@
 const STORAGE_ENABLED = 'gamedude.vizEnabled';
 const STORAGE_OPACITY = 'gamedude.vizOpacity';
-const STORAGE_VIBE = 'gamedude.vibe';
+const STORAGE_PACK = 'gamedude.vizPack';
+const STORAGE_PRESET_SLUG = 'gamedude.vizPresetSlug';
+const LEGACY_STORAGE_VIBE = 'gamedude.vibe';
+
+const PACK_ORDER = ['base', 'extra', 'image', 'minimal', 'nonMinimal', 'md1', 'other'];
+
+const PACK_LABELS = {
+  base: 'Base',
+  extra: 'Extra',
+  image: 'Image',
+  minimal: 'Minimal',
+  nonMinimal: 'Non-Minimal',
+  md1: 'MD1',
+  other: 'Other',
+};
 
 /** Resolve vendor URLs from the page URL (works on GitHub Pages subpaths). */
 function vendorBaseUrl() {
@@ -65,13 +79,14 @@ export class ButterchurnController {
     this._error = null;
     this._ready = false;
     this._catalog = [];
-    this._vibeSelect = null;
-    this._vibeBusy = false;
-    this._queuedVibeApply = false;
+    this._catalogMeta = null;
+    this._packSelect = null;
+    this._presetSelect = null;
+    this._presetBusy = false;
+    this._queuedPresetSlug = null;
     this._currentPresetSlug = null;
-    this._random = Math.random;
+    this._loadedImages = new Map();
     this._vendorBase = vendorBaseUrl();
-    this._extraImagesLoaded = false;
 
     document.documentElement.style.setProperty('--viz-opacity', String(this.opacity));
     this._buildControls();
@@ -112,7 +127,7 @@ export class ButterchurnController {
       await this._initVisualizer();
     }
     if (this._ready) {
-      await this._applySelectedVibe({ forceNew: true });
+      await this._applyCurrentSelection();
     }
     if (this._ready && this.audioActive) {
       this._startLoop();
@@ -150,24 +165,49 @@ export class ButterchurnController {
       }
     });
 
-    const vibeRow = document.createElement('label');
-    vibeRow.className = 'viz-controls-row';
-    const vibeLabel = document.createElement('span');
-    vibeLabel.className = 'viz-label';
-    vibeLabel.textContent = 'Vibe';
+    const packRow = document.createElement('label');
+    packRow.className = 'viz-controls-row';
+    const packLabel = document.createElement('span');
+    packLabel.className = 'viz-label';
+    packLabel.textContent = 'Pack';
 
-    const vibeSelect = document.createElement('select');
-    vibeSelect.className = 'viz-vibe-select';
-    vibeSelect.disabled = true;
-    vibeSelect.appendChild(new Option('Loading Vibes...', '__loading__'));
-    vibeSelect.addEventListener('change', () => {
-      localStorage.setItem(STORAGE_VIBE, vibeSelect.value);
-      this._applySelectedVibe({ forceNew: true }).catch((err) => {
-        this._setError(err?.message || 'Vibe switch failed');
+    const packSelect = document.createElement('select');
+    packSelect.className = 'viz-pack-select';
+    packSelect.disabled = true;
+    packSelect.appendChild(new Option('Loading...', '__loading__'));
+    packSelect.addEventListener('change', () => {
+      localStorage.setItem(STORAGE_PACK, packSelect.value);
+      this._buildPresetOptions();
+      const firstSlug = this._presetSelect?.value;
+      if (firstSlug && firstSlug !== '__none__') {
+        this._applyPresetSlug(firstSlug).catch((err) => {
+          this._setError(err?.message || 'Preset switch failed');
+        });
+      }
+    });
+    packRow.append(packLabel, packSelect);
+    this._packSelect = packSelect;
+
+    const presetRow = document.createElement('label');
+    presetRow.className = 'viz-controls-row';
+    const presetLabel = document.createElement('span');
+    presetLabel.className = 'viz-label';
+    presetLabel.textContent = 'Preset';
+
+    const presetSelect = document.createElement('select');
+    presetSelect.className = 'viz-preset-select';
+    presetSelect.disabled = true;
+    presetSelect.appendChild(new Option('Loading...', '__loading__'));
+    presetSelect.addEventListener('change', () => {
+      const slug = presetSelect.value;
+      if (!slug || slug.startsWith('__')) return;
+      localStorage.setItem(STORAGE_PRESET_SLUG, slug);
+      this._applyPresetSlug(slug).catch((err) => {
+        this._setError(err?.message || 'Preset switch failed');
       });
     });
-    vibeRow.append(vibeLabel, vibeSelect);
-    this._vibeSelect = vibeSelect;
+    presetRow.append(presetLabel, presetSelect);
+    this._presetSelect = presetSelect;
 
     const opacityRow = document.createElement('label');
     opacityRow.className = 'viz-controls-row';
@@ -190,7 +230,7 @@ export class ButterchurnController {
     this._errorEl.className = 'viz-error';
     this._errorEl.hidden = true;
 
-    this.controlsEl.append(toggleWrap, vibeRow, opacityRow, this._errorEl);
+    this.controlsEl.append(toggleWrap, packRow, presetRow, opacityRow, this._errorEl);
 
     if (this.enabled) {
       this.enable().catch((err) => this._setError(err.message));
@@ -198,80 +238,171 @@ export class ButterchurnController {
   }
 
   async _loadCatalog() {
-    const url = new URL('preset-catalog.json', this._vendorBase).href;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Could not load preset catalog (${response.status})`);
+    const catalogUrl = new URL('preset-catalog.json', this._vendorBase).href;
+    const metaUrl = new URL('preset-catalog-meta.json', this._vendorBase).href;
+
+    const [catalogResponse, metaResponse] = await Promise.all([fetch(catalogUrl), fetch(metaUrl)]);
+    if (!catalogResponse.ok) {
+      throw new Error(`Could not load preset catalog (${catalogResponse.status})`);
     }
-    this._catalog = await response.json();
-    this._buildVibeOptions();
+    this._catalog = await catalogResponse.json();
+    if (metaResponse.ok) {
+      this._catalogMeta = await metaResponse.json();
+    }
+    this._migrateLegacyStorage();
+    this._buildPackOptions();
+    this._buildPresetOptions();
     if (this._ready) {
-      await this._applySelectedVibe({ forceNew: true });
+      await this._applyCurrentSelection();
     }
   }
 
-  _buildVibeOptions() {
-    if (!this._vibeSelect) return;
+  _migrateLegacyStorage() {
+    if (localStorage.getItem(STORAGE_PACK)) return;
 
-    const groups = new Map();
+    const legacyVibe = localStorage.getItem(LEGACY_STORAGE_VIBE);
+    if (!legacyVibe) return;
+
+    const match = this._catalog.find((entry) => entry.vibe === legacyVibe);
+    if (match?.packs?.length) {
+      localStorage.setItem(STORAGE_PACK, match.packs[0]);
+      localStorage.setItem(STORAGE_PRESET_SLUG, match.slug);
+    }
+  }
+
+  _packCounts() {
+    if (this._catalogMeta?.packs?.length) {
+      return new Map(this._catalogMeta.packs.map((pack) => [pack.id, pack.count]));
+    }
+    const counts = new Map();
     for (const entry of this._catalog) {
-      groups.set(entry.vibe, (groups.get(entry.vibe) ?? 0) + 1);
+      for (const packId of entry.packs ?? []) {
+        counts.set(packId, (counts.get(packId) ?? 0) + 1);
+      }
     }
+    return counts;
+  }
 
-    this._vibeSelect.innerHTML = '';
-    if (!groups.size) {
-      this._vibeSelect.appendChild(new Option('No Vibes Found', '__none__'));
-      this._vibeSelect.disabled = true;
+  _buildPackOptions() {
+    if (!this._packSelect) return;
+
+    const counts = this._packCounts();
+    const packIds = [...counts.keys()].sort(
+      (a, b) => PACK_ORDER.indexOf(a) - PACK_ORDER.indexOf(b),
+    );
+
+    this._packSelect.innerHTML = '';
+    if (!packIds.length) {
+      this._packSelect.appendChild(new Option('No packs found', '__none__'));
+      this._packSelect.disabled = true;
       return;
     }
 
-    for (const [vibe, count] of groups) {
+    for (const packId of packIds) {
+      const count = counts.get(packId) ?? 0;
+      const label = PACK_LABELS[packId] ?? packId;
       const option = document.createElement('option');
-      option.value = vibe;
-      option.textContent = count > 1 ? `${vibe} (${count})` : vibe;
-      this._vibeSelect.appendChild(option);
+      option.value = packId;
+      option.textContent = count > 0 ? `${label} (${count})` : label;
+      this._packSelect.appendChild(option);
     }
 
-    const saved = localStorage.getItem(STORAGE_VIBE);
-    if (saved && [...this._vibeSelect.options].some((option) => option.value === saved)) {
-      this._vibeSelect.value = saved;
+    const saved = localStorage.getItem(STORAGE_PACK);
+    if (saved && [...this._packSelect.options].some((option) => option.value === saved)) {
+      this._packSelect.value = saved;
     } else {
-      this._vibeSelect.selectedIndex = 0;
-      localStorage.setItem(STORAGE_VIBE, this._vibeSelect.value);
+      this._packSelect.selectedIndex = 0;
+      localStorage.setItem(STORAGE_PACK, this._packSelect.value);
     }
-    this._vibeSelect.disabled = false;
+    this._packSelect.disabled = false;
   }
 
-  _getSelectedVibePresets() {
-    if (!this._catalog.length || !this._vibeSelect) return [];
-    const vibe = this._vibeSelect.value;
-    if (!vibe || vibe === '__none__') return [];
-    return this._catalog.filter((entry) => entry.vibe === vibe);
+  _presetsForPack(packId) {
+    if (!packId || packId.startsWith('__')) return [];
+    return this._catalog
+      .filter((entry) => entry.packs?.includes(packId))
+      .sort((a, b) => a.key.localeCompare(b.key));
   }
 
-  async _applySelectedVibe({ forceNew = false } = {}) {
-    if (!this._visualizer || !this._ready) return;
-    if (this._vibeBusy) {
-      this._queuedVibeApply = true;
+  _buildPresetOptions() {
+    if (!this._presetSelect || !this._packSelect) return;
+
+    const packId = this._packSelect.value;
+    const presets = this._presetsForPack(packId);
+
+    this._presetSelect.innerHTML = '';
+    if (!presets.length) {
+      this._presetSelect.appendChild(new Option('No presets in pack', '__none__'));
+      this._presetSelect.disabled = true;
       return;
     }
 
-    const candidates = this._getSelectedVibePresets();
-    if (!candidates.length) return;
+    for (const entry of presets) {
+      const option = document.createElement('option');
+      option.value = entry.slug;
+      option.textContent = entry.key;
+      option.title = entry.key;
+      this._presetSelect.appendChild(option);
+    }
 
-    this._vibeBusy = true;
+    const saved = localStorage.getItem(STORAGE_PRESET_SLUG);
+    const savedInPack = saved && presets.some((entry) => entry.slug === saved);
+    if (savedInPack) {
+      this._presetSelect.value = saved;
+    } else {
+      this._presetSelect.selectedIndex = 0;
+      localStorage.setItem(STORAGE_PRESET_SLUG, this._presetSelect.value);
+    }
+    this._presetSelect.disabled = false;
+  }
+
+  _entryForSlug(slug) {
+    return this._catalog.find((entry) => entry.slug === slug) ?? null;
+  }
+
+  async _applyCurrentSelection() {
+    if (!this._visualizer || !this._ready) return;
+
+    const slug =
+      this._presetSelect?.value && !this._presetSelect.value.startsWith('__')
+        ? this._presetSelect.value
+        : localStorage.getItem(STORAGE_PRESET_SLUG);
+
+    if (slug && this._entryForSlug(slug)) {
+      await this._applyPresetSlug(slug);
+      return;
+    }
+
+    const packId = this._packSelect?.value;
+    const presets = this._presetsForPack(packId);
+    if (presets[0]) {
+      await this._applyPresetSlug(presets[0].slug);
+    }
+  }
+
+  async _applyPresetSlug(slug) {
+    if (!this._visualizer || !this._ready) return;
+    if (this._presetBusy) {
+      this._queuedPresetSlug = slug;
+      return;
+    }
+
+    const entry = this._entryForSlug(slug);
+    if (!entry) return;
+
+    this._presetBusy = true;
     try {
-      const pool =
-        forceNew && candidates.length > 1
-          ? candidates.filter((entry) => entry.slug !== this._currentPresetSlug)
-          : candidates;
-      const pick = pool[Math.floor(this._random() * pool.length)] ?? candidates[0];
-      await this._loadPresetEntry(pick);
+      if (this._presetSelect && this._presetSelect.value !== slug) {
+        this._presetSelect.value = slug;
+      }
+      await this._loadPresetEntry(entry);
+      localStorage.setItem(STORAGE_PRESET_SLUG, slug);
     } finally {
-      this._vibeBusy = false;
-      if (this._queuedVibeApply) {
-        this._queuedVibeApply = false;
-        await this._applySelectedVibe({ forceNew: true });
+      this._presetBusy = false;
+      if (this._queuedPresetSlug) {
+        const next = this._queuedPresetSlug;
+        this._queuedPresetSlug = null;
+        await this._applyPresetSlug(next);
       }
     }
   }
@@ -283,12 +414,55 @@ export class ButterchurnController {
       throw new Error(`Could not load preset (${response.status})`);
     }
     const presetJson = await response.json();
+    await this._loadPresetImages(entry);
     await this._visualizer.loadPreset(presetJson, 1.5);
     this._currentPresetSlug = entry.slug;
-    this.hostEl.dataset.vizVibe = entry.vibe;
+    this.hostEl.dataset.vizPack = this._packSelect?.value ?? entry.packs?.[0] ?? '';
     this.hostEl.dataset.vizPresetSlug = entry.slug;
     this.hostEl.dataset.vizPresetIndex = String(entry.index);
+    if (entry.vibe) {
+      this.hostEl.dataset.vizVibe = entry.vibe;
+    } else {
+      delete this.hostEl.dataset.vizVibe;
+    }
     this._renderFrameOnce();
+  }
+
+  async _loadPresetImages(entry) {
+    if (!this._visualizer?.loadExtraImages) return;
+
+    const refs = entry.images ?? [];
+    if (!refs.length) return;
+
+    const imageDir = new URL('imageData/', this._vendorBase).href;
+    const pending = refs.filter((name) => !this._loadedImages.has(name));
+    if (!pending.length) {
+      this._visualizer.loadExtraImages(Object.fromEntries(this._loadedImages));
+      return;
+    }
+
+    const imageMap = {};
+    await Promise.all(
+      pending.map(async (name) => {
+        try {
+          const imageResponse = await fetch(new URL(name, imageDir));
+          if (!imageResponse.ok) return;
+          const blob = await imageResponse.blob();
+          const bitmap = await createImageBitmap(blob);
+          this._loadedImages.set(name, bitmap);
+          imageMap[name] = bitmap;
+        } catch (err) {
+          console.warn('[butterchurn] image load failed', name, err);
+        }
+      }),
+    );
+
+    if (Object.keys(imageMap).length) {
+      this._visualizer.loadExtraImages({
+        ...Object.fromEntries(this._loadedImages),
+        ...imageMap,
+      });
+    }
   }
 
   _setError(message) {
@@ -296,9 +470,6 @@ export class ButterchurnController {
     if (this._errorEl) {
       this._errorEl.hidden = false;
       this._errorEl.textContent = message;
-    }
-    if (this._statusEl) {
-      this._statusEl.textContent = message;
     }
     console.error('[butterchurn]', message);
   }
@@ -341,7 +512,6 @@ export class ButterchurnController {
         pixelRatio,
       });
 
-      await this._loadExtraImages();
       this._connectAudio();
       this._ready = true;
 
@@ -352,7 +522,8 @@ export class ButterchurnController {
 
       this._resize();
       if (this._catalog.length) {
-        this._buildVibeOptions();
+        this._buildPackOptions();
+        this._buildPresetOptions();
       }
     } catch (err) {
       const message =
@@ -361,36 +532,6 @@ export class ButterchurnController {
           : err?.message || String(err);
       this._setError(message);
       throw err;
-    }
-  }
-
-  async _loadExtraImages() {
-    if (this._extraImagesLoaded || !this._visualizer?.loadExtraImages) {
-      return;
-    }
-    try {
-      const imageDir = new URL('imageData/', this._vendorBase).href;
-      const manifestUrl = new URL('imageData/manifest.json', this._vendorBase).href;
-      const response = await fetch(manifestUrl);
-      if (!response.ok) return;
-      const files = await response.json();
-      if (!Array.isArray(files) || !files.length) return;
-
-      const imageMap = {};
-      await Promise.all(
-        files.map(async (name) => {
-          const imageResponse = await fetch(new URL(name, imageDir));
-          if (!imageResponse.ok) return;
-          const blob = await imageResponse.blob();
-          imageMap[name] = await createImageBitmap(blob);
-        }),
-      );
-      if (Object.keys(imageMap).length) {
-        this._visualizer.loadExtraImages(imageMap);
-      }
-      this._extraImagesLoaded = true;
-    } catch (err) {
-      console.warn('[butterchurn] extra image preload skipped', err);
     }
   }
 

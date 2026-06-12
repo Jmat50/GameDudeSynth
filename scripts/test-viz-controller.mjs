@@ -1,6 +1,22 @@
 import assert from 'node:assert/strict';
 import { ButterchurnController } from '../src-player/visualizer/ButterchurnController.js';
 
+function makeSelect() {
+  const options = [];
+  return {
+    innerHTML: '',
+    value: '',
+    disabled: false,
+    options,
+    appendChild(option) {
+      options.push(option);
+      if (!this.value && option.value) {
+        this.value = option.value;
+      }
+    },
+  };
+}
+
 async function testSetAudioActiveGate() {
   const ctrl = Object.create(ButterchurnController.prototype);
   ctrl.enabled = true;
@@ -22,75 +38,75 @@ async function testSetAudioActiveGate() {
   assert.equal(stopped, 1, 'render loop should stop when inactive');
 }
 
-async function testCatalogGroupsVibes() {
+async function testPresetsForPackFiltersAndSorts() {
   const ctrl = Object.create(ButterchurnController.prototype);
   ctrl._catalog = [
-    { vibe: 'Particles', slug: 'a' },
-    { vibe: 'Dancer', slug: 'b' },
-    { vibe: 'Dancer', slug: 'c' },
-    { vibe: 'Waveform', slug: 'd' },
+    { key: 'Z preset', slug: 'z', packs: ['base'] },
+    { key: 'A preset', slug: 'a', packs: ['base', 'extra'] },
+    { key: 'Other only', slug: 'o', packs: ['other'] },
   ];
-  ctrl._vibeSelect = { innerHTML: '', options: [], disabled: false, appendChild() {} };
 
-  const groups = new Map();
-  for (const entry of ctrl._catalog) {
-    groups.set(entry.vibe, (groups.get(entry.vibe) ?? 0) + 1);
-  }
-
+  const basePresets = ctrl._presetsForPack('base');
   assert.deepEqual(
-    [...groups.entries()],
-    [
-      ['Particles', 1],
-      ['Dancer', 2],
-      ['Waveform', 1],
-    ],
-    'catalog entries should group into Vibe counts',
+    basePresets.map((entry) => entry.slug),
+    ['a', 'z'],
+    'base pack presets should be sorted by key',
   );
+
+  const extraPresets = ctrl._presetsForPack('extra');
+  assert.deepEqual(extraPresets.map((entry) => entry.slug), ['a']);
 }
 
-async function testVibeSelectionRandomizesWithinSelectedStyle() {
+async function testBuildPresetOptionsUsesSavedSlug() {
+  globalThis.document = {
+    createElement(tag) {
+      if (tag !== 'option') throw new Error(`unexpected tag ${tag}`);
+      return { value: '', textContent: '', title: '' };
+    },
+  };
+
+  const ctrl = Object.create(ButterchurnController.prototype);
+  ctrl._catalog = [
+    { key: 'First', slug: 'first', packs: ['base'] },
+    { key: 'Second', slug: 'second', packs: ['base'] },
+  ];
+  ctrl._packSelect = makeSelect();
+  ctrl._packSelect.value = 'base';
+  ctrl._presetSelect = makeSelect();
+
+  globalThis.localStorage = {
+    _data: new Map([['gamedude.vizPresetSlug', 'second']]),
+    getItem(key) {
+      return this._data.get(key) ?? null;
+    },
+    setItem(key, value) {
+      this._data.set(key, value);
+    },
+  };
+
+  ctrl._buildPresetOptions();
+
+  assert.equal(ctrl._presetSelect.value, 'second', 'saved slug should be selected when in pack');
+}
+
+async function testApplyPresetSlugLoadsEntry() {
   const ctrl = Object.create(ButterchurnController.prototype);
   ctrl._visualizer = {};
   ctrl._ready = true;
-  ctrl._vibeBusy = false;
-  ctrl._vibeSelect = { value: 'Dancer' };
+  ctrl._presetBusy = false;
   ctrl._catalog = [
-    { index: 0, vibe: 'Particles', slug: 'p1', url: './presets/p1.json' },
-    { index: 1, vibe: 'Dancer', slug: 'd1', url: './presets/d1.json' },
-    { index: 2, vibe: 'Dancer', slug: 'd2', url: './presets/d2.json' },
-    { index: 3, vibe: 'Waveform', slug: 'w1', url: './presets/w1.json' },
+    { index: 1, key: 'Test', slug: 'test-slug', url: './presets/test-slug.json', packs: ['base'] },
   ];
-  ctrl._currentPresetSlug = 'd1';
-  ctrl._random = () => 0.99;
+  ctrl._presetSelect = makeSelect();
+  ctrl._packSelect = makeSelect();
   let loadedSlug = null;
   ctrl._loadPresetEntry = async (entry) => {
     loadedSlug = entry.slug;
   };
 
-  await ctrl._applySelectedVibe({ forceNew: true });
+  await ctrl._applyPresetSlug('test-slug');
 
-  assert.equal(
-    loadedSlug,
-    'd2',
-    'selecting a Vibe should choose a different random preset from that Vibe when possible',
-  );
-}
-
-async function testGetSelectedVibePresetsFiltersByVibe() {
-  const ctrl = Object.create(ButterchurnController.prototype);
-  ctrl._vibeSelect = { value: 'Reaction' };
-  ctrl._catalog = [
-    { vibe: 'Particles', slug: 'p1' },
-    { vibe: 'Reaction', slug: 'r1' },
-    { vibe: 'Reaction', slug: 'r2' },
-  ];
-
-  const presets = ctrl._getSelectedVibePresets();
-  assert.deepEqual(
-    presets.map((entry) => entry.slug),
-    ['r1', 'r2'],
-    'selected vibe presets should be filtered from the catalog',
-  );
+  assert.equal(loadedSlug, 'test-slug', 'applyPresetSlug should load matching catalog entry');
 }
 
 async function testAudioGatingRequiresPlayback() {
@@ -116,9 +132,9 @@ async function testAudioGatingRequiresPlayback() {
 
 async function run() {
   await testSetAudioActiveGate();
-  await testCatalogGroupsVibes();
-  await testVibeSelectionRandomizesWithinSelectedStyle();
-  await testGetSelectedVibePresetsFiltersByVibe();
+  await testPresetsForPackFiltersAndSorts();
+  await testBuildPresetOptionsUsesSavedSlug();
+  await testApplyPresetSlugLoadsEntry();
   await testAudioGatingRequiresPlayback();
   console.log('All visualizer controller checks passed.');
 }

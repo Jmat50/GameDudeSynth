@@ -9,22 +9,23 @@ These are **not** MIDI export settings and not per-track audio settings.
 | Control | What it does |
 |---------|--------------|
 | **Viz** | Turns the background visualizer on or off. |
-| **Vibe** | Chooses a visual style and randomly loads one bundled Milkdrop preset from that style. |
+| **Pack** | Chooses a preset category from upstream butterchurn-presets pack metadata (Base, Extra, Image, etc.). |
+| **Preset** | Chooses a specific Milkdrop preset from the selected pack. |
 | **Dim** | Sets how strong the background appears (opacity over the page). Lower = more subtle. |
 
-Vibes still **react to the music** while playing (beat, level, spectrum). Selecting a new **Vibe** picks a random bundled visual from that category; there are no previous/next preset controls.
+Presets **react to the music** while playing (beat, level, spectrum). Your Pack and Preset choices are remembered in the browser.
 
-## Verifying loaded Vibes
+## Verifying loaded presets
 
 1. Open the player over HTTP (local server or GitHub Pages), not `file://`.
-2. Enable **Viz** and choose entries from the **Vibe** dropdown.
-3. Run `npm run verify:presets` for a headless browser check that each Vibe produces non-flat canvas output.
+2. Enable **Viz**, pick a **Pack**, then choose a **Preset**.
+3. Run `npm run verify:presets -- --sample=30` for a headless browser check on a stratified sample.
 
 The full bundled catalog with categories is in [PRESETS.md](./PRESETS.md).
 
 ## Building / updating presets
 
-Presets are curated in [`scripts/butterchurn-preset-catalog.json`](../scripts/butterchurn-preset-catalog.json). The build step copies JSON files into `public/vendor/butterchurn/presets/` and writes `preset-catalog.json` for the Vibe dropdown:
+Presets are copied from `butterchurn-presets` at build time. Optional vibe/description overrides for curated picks live in [`scripts/butterchurn-preset-catalog.json`](../scripts/butterchurn-preset-catalog.json). The build copies all converted JSON files into `public/vendor/butterchurn/presets/` and writes `preset-catalog.json` for the dropdowns:
 
 ```bash
 npm run build:butterchurn

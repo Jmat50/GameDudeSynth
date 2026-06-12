@@ -1,0 +1,42 @@
+{
+  "presetsVersion": "3.0.0-beta.4",
+  "presetCount": 502,
+  "excludedCount": 2,
+  "packs": [
+    {
+      "id": "base",
+      "label": "Base",
+      "count": 106
+    },
+    {
+      "id": "extra",
+      "label": "Extra",
+      "count": 186
+    },
+    {
+      "id": "image",
+      "label": "Image",
+      "count": 151
+    },
+    {
+      "id": "minimal",
+      "label": "Minimal",
+      "count": 29
+    },
+    {
+      "id": "nonMinimal",
+      "label": "Non-Minimal",
+      "count": 77
+    },
+    {
+      "id": "md1",
+      "label": "MD1",
+      "count": 87
+    },
+    {
+      "id": "other",
+      "label": "Other",
+      "count": 31
+    }
+  ]
+}

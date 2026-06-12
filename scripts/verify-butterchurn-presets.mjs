@@ -1,27 +1,28 @@
 /**
- * Headless browser check: each Vibe option should load a butterchurn preset
- * and produce non-flat canvas output.
+ * Headless browser check: sampled presets should load and produce non-flat canvas output.
  *
- * Usage: node scripts/verify-butterchurn-presets.mjs [--port 3000]
+ * Usage: node scripts/verify-butterchurn-presets.mjs [--port 3000] [--sample=30]
  */
 import { createServer } from 'node:http';
 import { readFile, stat, mkdir, writeFile } from 'node:fs/promises';
+import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, '..');
 
-function parsePort(argv) {
+function parseArg(argv, name, fallback) {
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
-    if (arg.startsWith('--port=')) return Number(arg.split('=')[1]);
-    if (arg === '--port' && argv[index + 1]) return Number(argv[index + 1]);
+    if (arg.startsWith(`${name}=`)) return arg.split('=')[1];
+    if (arg === name && argv[index + 1]) return argv[index + 1];
   }
-  return 3099;
+  return fallback;
 }
 
-const port = parsePort(process.argv);
+const port = Number(parseArg(process.argv, '--port', '3099'));
+const sampleSize = Number(parseArg(process.argv, '--sample', '30'));
 
 const MIME = {
   '.html': 'text/html',
@@ -58,6 +59,48 @@ function createStaticServer(root) {
       res.end();
     }
   });
+}
+
+function loadCatalog() {
+  const catalogPath = join(repoRoot, 'public', 'vendor', 'butterchurn', 'preset-catalog.json');
+  const metaPath = join(repoRoot, 'public', 'vendor', 'butterchurn', 'preset-catalog-meta.json');
+  const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'));
+  const meta = existsSync(metaPath) ? JSON.parse(readFileSync(metaPath, 'utf8')) : null;
+  return { catalog, meta };
+}
+
+function pickSamplePresets(catalog, meta, sampleLimit) {
+  const byPack = new Map();
+  for (const entry of catalog) {
+    for (const packId of entry.packs ?? []) {
+      if (!byPack.has(packId)) byPack.set(packId, []);
+      byPack.get(packId).push(entry);
+    }
+  }
+
+  const picked = [];
+  const seen = new Set();
+
+  for (const pack of meta?.packs ?? []) {
+    const entries = byPack.get(pack.id) ?? [];
+    if (!entries.length) continue;
+    const entry = entries[0];
+    if (!seen.has(entry.slug)) {
+      seen.add(entry.slug);
+      picked.push({ packId: pack.id, entry });
+    }
+  }
+
+  const remaining = catalog.filter((entry) => !seen.has(entry.slug));
+  const stride = Math.max(1, Math.ceil(remaining.length / Math.max(1, sampleLimit - picked.length)));
+  for (let index = 0; index < remaining.length && picked.length < sampleLimit; index += stride) {
+    const entry = remaining[index];
+    if (seen.has(entry.slug)) continue;
+    seen.add(entry.slug);
+    picked.push({ packId: entry.packs?.[0] ?? 'other', entry });
+  }
+
+  return picked.slice(0, sampleLimit);
 }
 
 async function loadPlaywright() {
@@ -105,15 +148,29 @@ async function sampleCanvasMax(page, passes = 12, gapMs = 500) {
   return best;
 }
 
-async function selectVibe(page, value) {
-  await page.evaluate((nextValue) => {
-    const select = document.querySelector('.viz-vibe-select');
-    select.value = nextValue;
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-  }, value);
+async function selectPreset(page, packId, slug) {
+  await page.evaluate(
+    ({ nextPack, nextSlug }) => {
+      const packSelect = document.querySelector('.viz-pack-select');
+      const presetSelect = document.querySelector('.viz-preset-select');
+      if (packSelect) {
+        packSelect.value = nextPack;
+        packSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (presetSelect) {
+        presetSelect.value = nextSlug;
+        presetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    },
+    { nextPack: packId, nextSlug: slug },
+  );
 }
 
 async function main() {
+  const { catalog, meta } = loadCatalog();
+  const targets = pickSamplePresets(catalog, meta, sampleSize);
+  console.log(`Verifying ${targets.length} presets (sample limit ${sampleSize})`);
+
   const { chromium } = await loadPlaywright();
   const server = createStaticServer(repoRoot);
   await new Promise((resolve) => server.listen(port, '127.0.0.1', resolve));
@@ -126,8 +183,9 @@ async function main() {
     await page.goto(url, { waitUntil: 'networkidle', timeout: 120_000 });
 
     await page.evaluate(() => {
+      localStorage.removeItem('gamedude.vizPack');
+      localStorage.removeItem('gamedude.vizPresetSlug');
       localStorage.removeItem('gamedude.vibe');
-      localStorage.removeItem('gamedude.vizAutoShuffle');
     });
     await page.reload({ waitUntil: 'networkidle', timeout: 120_000 });
 
@@ -170,8 +228,16 @@ async function main() {
 
     await page.waitForFunction(
       () => {
-        const select = document.querySelector('.viz-vibe-select');
-        return select && !select.disabled && select.options.length > 1;
+        const packSelect = document.querySelector('.viz-pack-select');
+        const presetSelect = document.querySelector('.viz-preset-select');
+        return (
+          packSelect &&
+          presetSelect &&
+          !packSelect.disabled &&
+          !presetSelect.disabled &&
+          packSelect.options.length > 0 &&
+          presetSelect.options.length > 0
+        );
       },
       { timeout: 120_000 },
     );
@@ -180,26 +246,12 @@ async function main() {
       { timeout: 120_000 },
     );
 
-    const vibes = await page.evaluate(() =>
-      [...document.querySelectorAll('.viz-vibe-select option')]
-        .filter((option) => option.value && !option.value.startsWith('__'))
-        .map((option) => ({
-          value: option.value,
-          label: option.textContent?.trim() ?? option.value,
-        })),
-    );
-    if (vibes.length < 2) {
-      console.error('Expected multiple Vibe options, got:', vibes);
-      process.exitCode = 1;
-      return;
-    }
-
     const results = [];
-    for (const vibe of vibes) {
-      await selectVibe(page, vibe.value);
+    for (const target of targets) {
+      await selectPreset(page, target.packId, target.entry.slug);
       await page.waitForFunction(
-        (expectedVibe) => document.querySelector('#viz-host')?.dataset.vizVibe === expectedVibe,
-        vibe.value,
+        (expectedSlug) => document.querySelector('#viz-host')?.dataset.vizPresetSlug === expectedSlug,
+        target.entry.slug,
         { timeout: 45_000 },
       );
       await page.waitForTimeout(2_000);
@@ -208,49 +260,34 @@ async function main() {
         await page.waitForTimeout(3_000);
         sample = await sampleCanvasMax(page, 16, 500);
       }
-      const state = await page.evaluate(() => ({
-        vibe: document.querySelector('#viz-host')?.dataset.vizVibe,
-        presetIndex: document.querySelector('#viz-host')?.dataset.vizPresetIndex,
-        presetSlug: document.querySelector('#viz-host')?.dataset.vizPresetSlug,
-      }));
       const works = sample.ok && sample.std >= 8;
       results.push({
-        vibe: vibe.value,
-        label: vibe.label,
-        presetIndex: Number(state.presetIndex),
-        presetSlug: state.presetSlug,
+        packId: target.packId,
+        slug: target.entry.slug,
+        key: target.entry.key,
         std: Number(sample.std.toFixed(2)),
         mean: Number(sample.mean.toFixed(2)),
         works,
       });
       process.stdout.write(
-        `${vibe.value}\t${works ? 'yes' : 'no '}\tindex=${state.presetIndex}\tstd=${sample.std.toFixed(1)}\n`,
+        `${target.entry.slug}\t${works ? 'yes' : 'no '}\tpack=${target.packId}\tstd=${sample.std.toFixed(1)}\n`,
       );
     }
 
-    const uniquePresetIndexes = new Set(results.map((result) => result.presetIndex));
     const failed = results.filter((result) => !result.works);
-    if (uniquePresetIndexes.size !== results.length) {
-      console.error('Expected each Vibe to land on a different preset index:', results);
-      process.exitCode = 1;
-    }
     if (failed.length) {
-      console.error('Vibes with flat canvas output:', failed);
+      console.error('Presets with flat canvas output:', failed);
       process.exitCode = 1;
     }
 
-    const reportPath = join(repoRoot, '.build', 'vibe-verify.json');
+    const reportPath = join(repoRoot, '.build', 'preset-verify.json');
     await mkdir(join(repoRoot, '.build'), { recursive: true });
     await writeFile(
       reportPath,
-      JSON.stringify(
-        { results, threshold: 8, uniquePresetIndexes: uniquePresetIndexes.size },
-        null,
-        2,
-      ),
+      JSON.stringify({ results, threshold: 8, sampleSize: targets.length }, null, 2),
     );
     console.log(`Wrote ${reportPath}`);
-    console.log(`${results.length - failed.length}/${results.length} Vibes passed`);
+    console.log(`${results.length - failed.length}/${results.length} presets passed`);
   } finally {
     await browser.close();
     server.close();

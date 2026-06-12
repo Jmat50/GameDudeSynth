@@ -10,7 +10,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'dist', 'github-pages');
 const siteRoot = join(out, 'GameDudeSynth');
 
-const BUTTERCHURN_FILES = ['butterchurn.iife.js', 'preset-catalog.json'];
+const BUTTERCHURN_FILES = ['butterchurn.iife.js', 'preset-catalog.json', 'preset-catalog-meta.json'];
 
 function assertButterchurnBundle() {
   const vendorDir = join(root, 'public', 'vendor', 'butterchurn');
@@ -20,12 +20,18 @@ function assertButterchurnBundle() {
       throw new Error(`Missing ${path} — run npm run build:butterchurn then commit public/vendor/butterchurn/`);
     }
   }
+  const metaPath = join(vendorDir, 'preset-catalog-meta.json');
+  const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
+  const expectedCount = meta.presetCount ?? 0;
   const presetsDir = join(vendorDir, 'presets');
   const presetCount = existsSync(presetsDir)
     ? readdirSync(presetsDir).filter((name) => name.endsWith('.json')).length
     : 0;
-  if (presetCount < 40) {
-    throw new Error(`Expected 40 presets in ${presetsDir}, found ${presetCount}`);
+  if (expectedCount > 0 && presetCount !== expectedCount) {
+    throw new Error(`Expected ${expectedCount} presets in ${presetsDir}, found ${presetCount}`);
+  }
+  if (presetCount < 100) {
+    throw new Error(`Expected at least 100 presets in ${presetsDir}, found ${presetCount}`);
   }
 }
 

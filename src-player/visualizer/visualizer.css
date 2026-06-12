@@ -124,9 +124,8 @@
   cursor: not-allowed;
 }
 
-.viz-vibe-select {
-  min-width: 138px;
-  max-width: min(220px, calc(100vw - 112px));
+.viz-pack-select,
+.viz-preset-select {
   font-family: Lato, sans-serif;
   font-size: 0.7rem;
   padding: 4px 8px;
@@ -137,12 +136,24 @@
   cursor: pointer;
 }
 
-.viz-vibe-select:focus-visible {
+.viz-pack-select {
+  min-width: 138px;
+  max-width: min(220px, calc(100vw - 112px));
+}
+
+.viz-preset-select {
+  min-width: 160px;
+  max-width: min(360px, calc(100vw - 80px));
+}
+
+.viz-pack-select:focus-visible,
+.viz-preset-select:focus-visible {
   outline: 2px solid #eaee09;
   outline-offset: 2px;
 }
 
-.viz-vibe-select:disabled {
+.viz-pack-select:disabled,
+.viz-preset-select:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
