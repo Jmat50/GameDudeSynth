@@ -151,7 +151,7 @@ export class ButterchurnController {
     const toggleWrap = document.createElement('label');
     toggleWrap.className = 'viz-controls-row';
     toggleWrap.innerHTML = `
-      <span class="viz-label">Viz</span>
+      <span class="viz-label">Visuals</span>
       <input type="checkbox" class="viz-toggle" id="viz-enabled-toggle" />
       <span class="viz-thumb-track"><span class="viz-thumb"></span></span>
     `;
@@ -497,7 +497,7 @@ export class ButterchurnController {
 
     const audioCtx = getHowlerAudioContext();
     if (!audioCtx) {
-      throw new Error('Web Audio is not available yet. Start playback once, then enable Viz.');
+      throw new Error('Web Audio is not available yet. Start playback once, then enable Visuals.');
     }
 
     const canvas = this._getOrCreateCanvas();
