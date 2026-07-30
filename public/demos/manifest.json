@@ -49,6 +49,11 @@
       "id": "Presidents of the United States - Peaches",
       "title": "Presidents Of The United States Peaches",
       "url": "./public/demos/Presidents of the United States - Peaches.wav"
+    },
+    {
+      "id": "Under_Pressure",
+      "title": "Under Pressure",
+      "url": "./public/demos/Under_Pressure.wav"
     }
   ]
 }
