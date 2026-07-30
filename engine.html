@@ -164,7 +164,30 @@
     .review-hint {
       color: var(--muted);
       font-size: 0.88rem;
-      margin: 0 0 10px;
+      margin: 0;
+    }
+
+    .review-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .review-header-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .review-header-text strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    #previewMixBtn {
+      flex-shrink: 0;
+      white-space: nowrap;
     }
 
     .track-table-wrap {
@@ -197,6 +220,10 @@
     .track-table tr.noise-row { background: rgba(251, 146, 60, 0.1); }
     .track-table tr.muted-row { opacity: 0.5; }
     .track-table tr.preview-playing { outline: 1px solid var(--accent); }
+    #reviewPanel.preview-mix-playing {
+      outline: 1px solid var(--accent);
+      outline-offset: 2px;
+    }
 
     .track-table select {
       padding: 4px 6px;
@@ -227,8 +254,13 @@
     </section>
 
     <section id="reviewPanel" class="panel">
-      <strong>Track assignments</strong>
-      <p id="reviewHint" class="review-hint">Review detected roles before rendering. Override role, channel, mute, or primary lead.</p>
+      <div class="review-header">
+        <div class="review-header-text">
+          <strong>Track assignments</strong>
+          <p id="reviewHint" class="review-hint">Review detected roles before rendering. Override role, channel, mute, or primary lead.</p>
+        </div>
+        <button id="previewMixBtn" type="button" disabled title="Play mix of all mapped tracks">Preview</button>
+      </div>
       <div class="track-table-wrap">
         <table class="track-table">
           <thead>
@@ -267,6 +299,14 @@
             <option value="off">Off (dense mode)</option>
             <option value="steal">On - steal old note</option>
             <option value="skip">On - skip new note</option>
+          </select>
+        </label>
+        <label>
+          Preview Length
+          <select id="previewLength">
+            <option value="10" selected>10s</option>
+            <option value="15">15s</option>
+            <option value="30">30s</option>
           </select>
         </label>
         <label>
@@ -313,6 +353,8 @@
     const reviewHint = document.getElementById('reviewHint');
     const trackTableBody = document.getElementById('trackTableBody');
     const previewGbModeEl = document.getElementById('previewGbMode');
+    const previewLengthEl = document.getElementById('previewLength');
+    const previewMixBtn = document.getElementById('previewMixBtn');
 
     const synth = window.GameDudeSynthV2;
     const GameBoyPlayer = synth?.GameBoyPlayer;
@@ -356,10 +398,30 @@
       return `${mm}:${ss}`;
     }
 
+    function getPreviewLengthSec() {
+      const raw = Number(previewLengthEl?.value);
+      if (raw === 15 || raw === 30) return raw;
+      return 10;
+    }
+
+    function syncPreviewLengthTitles() {
+      const sec = getPreviewLengthSec();
+      if (previewMixBtn) {
+        previewMixBtn.title = `Play ~${sec}s mix of all mapped tracks`;
+      }
+      trackTableBody?.querySelectorAll('.preview-btn').forEach(btn => {
+        btn.title = `Play ${sec}s excerpt`;
+      });
+    }
+
     function setPreviewButtonsDisabled(disabled) {
       trackTableBody.querySelectorAll('.preview-btn').forEach(btn => {
         btn.disabled = disabled || btn.dataset.hasNotes === '0';
       });
+      if (previewMixBtn) {
+        const canMix = !!currentMidiBuffer && !!player && (currentAnalysis?.assignments?.length ?? 0) > 0;
+        previewMixBtn.disabled = disabled || !canMix;
+      }
       if (disabled) renderBtn.disabled = true;
       else if (currentMidiBuffer && player) renderBtn.disabled = false;
     }
@@ -369,12 +431,106 @@
         tr.classList.remove('preview-playing');
       });
       previewPlayingTrackIndex = null;
+      reviewPanel?.classList.remove('preview-mix-playing');
     }
 
     async function stopActivePreview() {
       partPreview?.stop(true);
       player?.stopPreviewGB?.();
       clearPreviewRowHighlight();
+    }
+
+    async function playMixPreview() {
+      if (!currentMidiBuffer || !player || previewInProgress) return;
+      if (!currentAnalysis?.assignments?.length) {
+        setStatus('No mapped tracks to preview. Assign engine channels first.', 'warn');
+        return;
+      }
+
+      const gbMode = previewGbModeEl?.checked === true;
+      const maxDurationSec = getPreviewLengthSec();
+
+      await stopActivePreview();
+      previewInProgress = true;
+      setPreviewButtonsDisabled(true);
+      reviewPanel?.classList.add('preview-mix-playing');
+
+      try {
+        rebuildOverridesFromTable();
+        setStatus('Preparing mix preview…', '');
+        const t0 = performance.now();
+        const mix = player.buildMixPreviewClip(
+          currentMidiBuffer,
+          trackOverrides,
+          { maxDurationSec }
+        );
+        const buildMs = performance.now() - t0;
+
+        if (!mix || mix.parts.length === 0) {
+          setStatus('No notes in mix preview window.', 'warn');
+          log('Mix preview skipped: empty window');
+          return;
+        }
+
+        const noteCount = mix.parts.reduce((n, p) => n + p.notes.length, 0);
+        const waitMs = Math.max(
+          buildMs,
+          estimatePreviewPrepareMs ? estimatePreviewPrepareMs(noteCount) : 80
+        );
+        await sleep(waitMs);
+
+        const totalLabel = formatPreviewTime(mix.duration);
+        const partCount = mix.parts.length;
+
+        if (gbMode) {
+          const mappedParts = mix.parts.filter(p => p.assignment);
+          if (mappedParts.length === 0) {
+            setStatus('Assign engine channels to preview export mix.', 'warn');
+            if (partPreview?.playMix) {
+              setStatus(`Previewing mix (lightweight fallback, ${partCount} parts)…`, '');
+              await partPreview.playMix(mix.parts, {
+                onProgress: (elapsed, total) => {
+                  setStatus(
+                    `Previewing mix (${formatPreviewTime(elapsed)} / ${formatPreviewTime(total)})`,
+                    ''
+                  );
+                },
+              });
+              setStatus(`Mix preview finished — ${partCount} parts.`, 'ok');
+            }
+            return;
+          }
+          setStatus(`Previewing mix (export sound, ${partCount} parts, ${totalLabel})…`, '');
+          await player.previewMixGB(mix);
+          setStatus(`Mix preview finished — ${partCount} parts.`, 'ok');
+          log(`GB mix preview: ${partCount} parts, ${noteCount} notes, ${totalLabel}`);
+        } else if (partPreview?.playMix) {
+          await partPreview.playMix(mix.parts, {
+            onProgress: (elapsed, total) => {
+              setStatus(
+                `Previewing mix (${formatPreviewTime(elapsed)} / ${formatPreviewTime(total)})`,
+                ''
+              );
+            },
+          });
+          setStatus(`Mix preview finished — ${partCount} parts.`, 'ok');
+          log(`Lightweight mix preview: ${partCount} parts, ${noteCount} notes, ${totalLabel}`);
+        } else if (partPreview) {
+          // Older bundle fallback: play parts sequentially is wrong; refuse
+          setStatus('Reload page after rebuild for mix preview.', 'warn');
+        } else {
+          setStatus('Preview player not loaded.', 'warn');
+        }
+      } catch (error) {
+        if (error?.message !== 'Preview stopped') {
+          setStatus('Mix preview failed.', 'warn');
+          log(`Mix preview error: ${error.message}`);
+        }
+      } finally {
+        previewInProgress = false;
+        clearPreviewRowHighlight();
+        setPreviewButtonsDisabled(false);
+      }
     }
 
     async function playTrackPreview(trackIndex) {
@@ -384,7 +540,7 @@
       if (!analysisRow || analysisRow.noteCount === 0) return;
 
       const gbMode = previewGbModeEl?.checked === true;
-      const maxDurationSec = 10;
+      const maxDurationSec = getPreviewLengthSec();
 
       await stopActivePreview();
       previewInProgress = true;
@@ -572,6 +728,7 @@
       const active = analysis.analyses.filter(a => a.noteCount > 0);
       if (active.length === 0) {
         reviewPanel.classList.remove('visible');
+        if (previewMixBtn) previewMixBtn.disabled = true;
         return;
       }
 
@@ -607,7 +764,7 @@
           ).join('')}</select></td>
           <td><input type="checkbox" class="mute-cb" ${a.muted ? 'checked' : ''} /></td>
           <td><input type="radio" name="primaryLead" class="lead-rb" value="${a.trackIndex}" ${a.isPrimaryLead ? 'checked' : ''} /></td>
-          <td><button type="button" class="preview-btn" data-has-notes="1" title="Play 10s excerpt">▶</button></td>
+          <td><button type="button" class="preview-btn" data-has-notes="1" title="Play excerpt">▶</button></td>
         `;
         const previewBtn = tr.querySelector('.preview-btn');
         previewBtn.addEventListener('click', (e) => {
@@ -622,6 +779,7 @@
       }
 
       setPreviewButtonsDisabled(previewInProgress);
+      syncPreviewLengthTitles();
       reviewPanel.classList.add('visible');
       const mapped = analysis.assignments.length;
       reviewHint.textContent =
@@ -866,6 +1024,13 @@
 
     renderBtn.addEventListener('click', renderWav);
     saveBtn.addEventListener('click', exportWav);
+    previewMixBtn?.addEventListener('click', () => {
+      playMixPreview();
+    });
+    previewLengthEl?.addEventListener('change', () => {
+      syncPreviewLengthTitles();
+    });
+    syncPreviewLengthTitles();
 
     if (!player) {
       setStatus('Engine failed to load.', 'warn');

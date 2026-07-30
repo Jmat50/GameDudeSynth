@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
-import { WavCatalog } from '../audio/WavCatalog.js';
+import { WavCatalog, isWavFile, isMidiFile } from '../audio/WavCatalog.js';
+import { MidiLivePlayer } from '../audio/MidiLivePlayer.js';
 
 export class GameDudeMenuScreen extends LitElement {
   static properties = {
@@ -11,6 +12,7 @@ export class GameDudeMenuScreen extends LitElement {
     elapsed: { type: Number },
     duration: { type: Number },
     loading: { type: Boolean },
+    playbackMode: { type: String },
   };
 
   constructor() {
@@ -23,14 +25,28 @@ export class GameDudeMenuScreen extends LitElement {
     this.elapsed = 0;
     this.duration = 0;
     this.loading = false;
+    this.playbackMode = null; // 'wav' | 'midi' | null
     this.catalog = new WavCatalog();
+    this.midiPlayer = new MidiLivePlayer();
     this._bootTimer = null;
     this._blinkTimer = null;
     this._pendingDrop = null;
     this.showBlink = true;
 
-    this.catalog.onEnd = () => this._returnToMenu();
+    this.catalog.onEnd = () => {
+      if (this.playbackMode === 'wav') this._returnToMenu();
+    };
     this.catalog.onProgress = (elapsed, duration) => {
+      if (this.playbackMode !== 'wav') return;
+      this.elapsed = elapsed;
+      this.duration = duration;
+    };
+
+    this.midiPlayer.onEnd = () => {
+      if (this.playbackMode === 'midi') this._returnToMenu();
+    };
+    this.midiPlayer.onProgress = (elapsed, duration) => {
+      if (this.playbackMode !== 'midi') return;
       this.elapsed = elapsed;
       this.duration = duration;
     };
@@ -47,6 +63,7 @@ export class GameDudeMenuScreen extends LitElement {
     super.disconnectedCallback();
     this._clearTimers();
     this.catalog.stop(false);
+    this.midiPlayer.stop(false);
   }
 
   powerOn() {
@@ -79,11 +96,15 @@ export class GameDudeMenuScreen extends LitElement {
     this._clearTimers();
     this._pendingDrop = null;
     this.catalog.stop(false);
+    this.midiPlayer.stop(false);
     this.catalog.clearLocalTracks();
+    this.playbackMode = null;
     this.scene = 'off';
     this.tracks = [];
     this.cursor = 0;
     this.statusText = '';
+    this.elapsed = 0;
+    this.duration = 0;
   }
 
   handleDroppedFile(file) {
@@ -92,9 +113,55 @@ export class GameDudeMenuScreen extends LitElement {
       return true;
     }
 
+    if (isMidiFile(file)) {
+      return this._playMidiFile(file);
+    }
+
+    if (isWavFile(file)) {
+      return this._playWavFile(file);
+    }
+
+    return false;
+  }
+
+  async _playMidiFile(file) {
+    if (!this.midiPlayer.isAvailable()) {
+      this.statusText = 'MIDI ENGINE MISSING';
+      console.error('[GameDudeMenuScreen] GameDudeSynthV2 not loaded — include gameboy-player.iife.js');
+      return false;
+    }
+
+    this.catalog.stop(false);
+    this.playbackMode = 'midi';
+    this.scene = 'playing';
+    this.elapsed = 0;
+    this.duration = 0;
+    this.requestUpdate();
+
+    try {
+      const ok = await this.midiPlayer.play(file);
+      if (!ok) {
+        this.playbackMode = null;
+        this._returnToMenu();
+        return false;
+      }
+      this.duration = this.midiPlayer.getDuration();
+      this.requestUpdate();
+      return true;
+    } catch (err) {
+      console.error('[GameDudeMenuScreen] MIDI play failed', err);
+      this.playbackMode = null;
+      this._returnToMenu();
+      return false;
+    }
+  }
+
+  _playWavFile(file) {
+    this.midiPlayer.stop(false);
     const ok = this.catalog.playLocalFile(file);
     if (!ok) return false;
 
+    this.playbackMode = 'wav';
     this.tracks = this.catalog.tracks;
     this.cursor = 0;
     this.scene = 'playing';
@@ -109,10 +176,13 @@ export class GameDudeMenuScreen extends LitElement {
 
     if (action === 'dpad') {
       if (this.scene === 'playing') {
-        if (detail.direction === 'right') {
-          this.catalog.seekBy(15);
-        } else if (detail.direction === 'left') {
-          this.catalog.seekBy(-15);
+        // Seek is WAV/Howler only (live MIDI seek not in v1).
+        if (this.playbackMode === 'wav') {
+          if (detail.direction === 'right') {
+            this.catalog.seekBy(15);
+          } else if (detail.direction === 'left') {
+            this.catalog.seekBy(-15);
+          }
         }
         return;
       }
@@ -130,22 +200,40 @@ export class GameDudeMenuScreen extends LitElement {
       if (this.scene === 'menu' && this.tracks.length > 0) {
         this._playCurrent();
       } else if (this.scene === 'playing') {
-        this.catalog.togglePause();
-        this.requestUpdate();
+        this._togglePauseActive();
       }
       return;
     }
 
     if (action === 'b' || action === 'select') {
       if (this.scene === 'playing') {
-        this.catalog.stop();
+        this._stopActive();
       }
     }
   }
 
+  _togglePauseActive() {
+    if (this.playbackMode === 'midi') {
+      this.midiPlayer.togglePause().then(() => this.requestUpdate());
+      return;
+    }
+    this.catalog.togglePause();
+    this.requestUpdate();
+  }
+
+  _stopActive() {
+    if (this.playbackMode === 'midi') {
+      this.midiPlayer.stop();
+      return;
+    }
+    this.catalog.stop();
+  }
+
   _playCurrent() {
+    this.midiPlayer.stop(false);
     const ok = this.catalog.play(this.cursor);
     if (ok) {
+      this.playbackMode = 'wav';
       this.scene = 'playing';
       this.elapsed = 0;
       this.duration = 0;
@@ -153,6 +241,7 @@ export class GameDudeMenuScreen extends LitElement {
   }
 
   _returnToMenu() {
+    this.playbackMode = null;
     this.scene = this.tracks.length > 0 ? 'menu' : 'empty';
     this.elapsed = 0;
     this.duration = 0;
@@ -174,6 +263,18 @@ export class GameDudeMenuScreen extends LitElement {
     const mm = String(Math.floor(s / 60)).padStart(2, '0');
     const ss = String(s % 60).padStart(2, '0');
     return `${mm}:${ss}`;
+  }
+
+  _getPlayingTrack() {
+    if (this.playbackMode === 'midi') {
+      return this.midiPlayer.getCurrentTrack();
+    }
+    return this.catalog.getCurrentTrack();
+  }
+
+  _isPaused() {
+    if (this.playbackMode === 'midi') return this.midiPlayer.isPaused();
+    return this.catalog.isPaused();
   }
 
   static styles = css`
@@ -306,7 +407,7 @@ export class GameDudeMenuScreen extends LitElement {
           <div class="title">GAMEDUDESYNTH</div>
           <div class="rule"></div>
           <div class="empty">
-            DRAG .WAV HERE<br />
+            DRAG .WAV / .MID<br />
             TO PLAY
           </div>
         </div>
@@ -314,9 +415,12 @@ export class GameDudeMenuScreen extends LitElement {
     }
 
     if (this.scene === 'playing') {
-      const track = this.catalog.getCurrentTrack();
+      const track = this._getPlayingTrack();
       const pct = this.duration > 0 ? Math.min(100, (this.elapsed / this.duration) * 100) : 0;
-      const isPaused = this.catalog.isPaused();
+      const isPaused = this._isPaused();
+      const seekHint = this.playbackMode === 'wav'
+        ? 'A/START = PAUSE/RESUME · B = STOP · ← -15s · → +15s'
+        : 'A/START = PAUSE/RESUME · B = STOP';
       return html`
         <div class="viewport">
           <div class="title">NOW PLAYING</div>
@@ -326,7 +430,7 @@ export class GameDudeMenuScreen extends LitElement {
             <div class="now ${this.showBlink || isPaused ? '' : 'blink-hidden'}">${isPaused ? '॥ PAUSED' : '♪ PLAYING'}</div>
             <div class="time">${this._formatTime(this.elapsed)} / ${this._formatTime(this.duration)}</div>
             <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
-            <div class="hint">A/START = PAUSE/RESUME · B = STOP · ← -15s · → +15s</div>
+            <div class="hint">${seekHint}</div>
           </div>
         </div>
       `;
@@ -349,7 +453,7 @@ export class GameDudeMenuScreen extends LitElement {
             </div>
           `)}
         </div>
-        <div class="hint">A/START PLAY · B STOP · DROP WAV</div>
+        <div class="hint">A/START PLAY · DROP WAV/MID</div>
       </div>
     `;
   }

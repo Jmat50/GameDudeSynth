@@ -2802,6 +2802,16 @@
     const type = file.type?.toLowerCase() ?? "";
     return type === "audio/wav" || type === "audio/x-wav" || type === "audio/wave";
   }
+  function isMidiFile(file) {
+    if (!file) return false;
+    const name = file.name?.toLowerCase() ?? "";
+    if (name.endsWith(".mid") || name.endsWith(".midi")) return true;
+    const type = file.type?.toLowerCase() ?? "";
+    return type === "audio/midi" || type === "audio/x-midi" || type === "audio/mid";
+  }
+  function isPlayableDropFile(file) {
+    return isWavFile(file) || isMidiFile(file);
+  }
   var WavCatalog = class {
     constructor() {
       this.manifestTracks = [];
@@ -2976,6 +2986,154 @@
     }
   };
 
+  // src-player/audio/MidiLivePlayer.js
+  function getEngine() {
+    return typeof window !== "undefined" ? window.GameDudeSynthV2 : null;
+  }
+  var MidiLivePlayer = class {
+    constructor() {
+      this.player = null;
+      this.title = "";
+      this.duration = 0;
+      this._paused = false;
+      this._progressTimer = null;
+      this._playing = false;
+      this.onEnd = null;
+      this.onProgress = null;
+      this.onPlayStateChange = null;
+    }
+    isAvailable() {
+      return typeof getEngine()?.GameBoyPlayer === "function";
+    }
+    async play(file) {
+      if (!this.isAvailable()) {
+        console.error("[MidiLivePlayer] GameDudeSynthV2 is not loaded");
+        return false;
+      }
+      this.stop(false);
+      const Engine = getEngine();
+      this.player = new Engine.GameBoyPlayer();
+      const buffer = await file.arrayBuffer();
+      const stem = file.name.replace(/\.(mid|midi)$/i, "");
+      this.title = humanizeFilename(stem);
+      const info = await this.player.playMIDI(buffer);
+      this.duration = info?.duration ?? 0;
+      this._paused = false;
+      this._playing = true;
+      this.onPlayStateChange?.(true);
+      this._startProgress();
+      return true;
+    }
+    stop(fireEnd = true) {
+      this._clearProgress();
+      const wasActive = this._playing || this._paused;
+      if (this.player) {
+        try {
+          this.player.stop();
+        } catch {
+        }
+        this.player = null;
+      }
+      this._playing = false;
+      this._paused = false;
+      this.duration = 0;
+      this.title = "";
+      if (wasActive) {
+        this.onPlayStateChange?.(false);
+      }
+      if (fireEnd && wasActive) {
+        this.onEnd?.();
+      }
+    }
+    async pause() {
+      if (!this.player || !this._playing || this._paused) return false;
+      const ctx = this.player.getAPU().getAudioContext();
+      if (ctx.state === "running") {
+        await ctx.suspend();
+      }
+      this._paused = true;
+      this._playing = false;
+      this.onPlayStateChange?.(false);
+      return true;
+    }
+    async resume() {
+      if (!this.player || !this._paused) return false;
+      const ctx = this.player.getAPU().getAudioContext();
+      if (ctx.state === "suspended") {
+        await ctx.resume();
+      }
+      this._paused = false;
+      this._playing = true;
+      this.onPlayStateChange?.(true);
+      return true;
+    }
+    async togglePause() {
+      if (this.isPlaying()) return this.pause();
+      if (this.isPaused()) return this.resume();
+      return false;
+    }
+    isPlaying() {
+      return this._playing && !!this.player?.getIsPlaying?.();
+    }
+    isPaused() {
+      return this._paused;
+    }
+    isActive() {
+      return !!this.player && (this._playing || this._paused);
+    }
+    getElapsed() {
+      if (!this.player) return 0;
+      if (this._paused) {
+        return Math.max(0, this.player.getElapsedTime());
+      }
+      if (!this.player.getIsPlaying()) return this.duration;
+      return Math.max(0, this.player.getElapsedTime());
+    }
+    getDuration() {
+      return this.duration;
+    }
+    getCurrentTrack() {
+      if (!this.isActive() || !this.title) return null;
+      return { id: "midi-live", title: this.title, midi: true };
+    }
+    getAudioContext() {
+      return this.player?.getAPU()?.getAudioContext?.() ?? null;
+    }
+    getOutputNode() {
+      return this.player?.getAPU()?.getOutputNode?.() ?? null;
+    }
+    _startProgress() {
+      this._clearProgress();
+      this._progressTimer = setInterval(() => {
+        if (!this.player) return;
+        const enginePlaying = this.player.getIsPlaying();
+        if (!enginePlaying && !this._paused) {
+          this._clearProgress();
+          this._playing = false;
+          this._paused = false;
+          const duration = this.duration;
+          this.onProgress?.(duration, duration);
+          this.onPlayStateChange?.(false);
+          this.player = null;
+          this.onEnd?.();
+          return;
+        }
+        if (this._paused) {
+          this.onProgress?.(this.getElapsed(), this.duration);
+          return;
+        }
+        const elapsed = Math.min(this.getElapsed(), this.duration || this.getElapsed());
+        this.onProgress?.(elapsed, this.duration);
+      }, 250);
+    }
+    _clearProgress() {
+      if (this._progressTimer) {
+        clearInterval(this._progressTimer);
+        this._progressTimer = null;
+      }
+    }
+  };
+
   // src-player/components/GameDudeMenuScreen.js
   var GameDudeMenuScreen = class extends i4 {
     static properties = {
@@ -2986,7 +3144,8 @@
       statusText: { type: String },
       elapsed: { type: Number },
       duration: { type: Number },
-      loading: { type: Boolean }
+      loading: { type: Boolean },
+      playbackMode: { type: String }
     };
     constructor() {
       super();
@@ -2998,13 +3157,26 @@
       this.elapsed = 0;
       this.duration = 0;
       this.loading = false;
+      this.playbackMode = null;
       this.catalog = new WavCatalog();
+      this.midiPlayer = new MidiLivePlayer();
       this._bootTimer = null;
       this._blinkTimer = null;
       this._pendingDrop = null;
       this.showBlink = true;
-      this.catalog.onEnd = () => this._returnToMenu();
+      this.catalog.onEnd = () => {
+        if (this.playbackMode === "wav") this._returnToMenu();
+      };
       this.catalog.onProgress = (elapsed, duration) => {
+        if (this.playbackMode !== "wav") return;
+        this.elapsed = elapsed;
+        this.duration = duration;
+      };
+      this.midiPlayer.onEnd = () => {
+        if (this.playbackMode === "midi") this._returnToMenu();
+      };
+      this.midiPlayer.onProgress = (elapsed, duration) => {
+        if (this.playbackMode !== "midi") return;
         this.elapsed = elapsed;
         this.duration = duration;
       };
@@ -3019,6 +3191,7 @@
       super.disconnectedCallback();
       this._clearTimers();
       this.catalog.stop(false);
+      this.midiPlayer.stop(false);
     }
     powerOn() {
       this.scene = "boot";
@@ -3049,19 +3222,63 @@
       this._clearTimers();
       this._pendingDrop = null;
       this.catalog.stop(false);
+      this.midiPlayer.stop(false);
       this.catalog.clearLocalTracks();
+      this.playbackMode = null;
       this.scene = "off";
       this.tracks = [];
       this.cursor = 0;
       this.statusText = "";
+      this.elapsed = 0;
+      this.duration = 0;
     }
     handleDroppedFile(file) {
       if (this.loading || this.scene === "boot") {
         this._pendingDrop = file;
         return true;
       }
+      if (isMidiFile(file)) {
+        return this._playMidiFile(file);
+      }
+      if (isWavFile(file)) {
+        return this._playWavFile(file);
+      }
+      return false;
+    }
+    async _playMidiFile(file) {
+      if (!this.midiPlayer.isAvailable()) {
+        this.statusText = "MIDI ENGINE MISSING";
+        console.error("[GameDudeMenuScreen] GameDudeSynthV2 not loaded \u2014 include gameboy-player.iife.js");
+        return false;
+      }
+      this.catalog.stop(false);
+      this.playbackMode = "midi";
+      this.scene = "playing";
+      this.elapsed = 0;
+      this.duration = 0;
+      this.requestUpdate();
+      try {
+        const ok = await this.midiPlayer.play(file);
+        if (!ok) {
+          this.playbackMode = null;
+          this._returnToMenu();
+          return false;
+        }
+        this.duration = this.midiPlayer.getDuration();
+        this.requestUpdate();
+        return true;
+      } catch (err) {
+        console.error("[GameDudeMenuScreen] MIDI play failed", err);
+        this.playbackMode = null;
+        this._returnToMenu();
+        return false;
+      }
+    }
+    _playWavFile(file) {
+      this.midiPlayer.stop(false);
       const ok = this.catalog.playLocalFile(file);
       if (!ok) return false;
+      this.playbackMode = "wav";
       this.tracks = this.catalog.tracks;
       this.cursor = 0;
       this.scene = "playing";
@@ -3074,10 +3291,12 @@
       const action = detail.action ?? detail;
       if (action === "dpad") {
         if (this.scene === "playing") {
-          if (detail.direction === "right") {
-            this.catalog.seekBy(15);
-          } else if (detail.direction === "left") {
-            this.catalog.seekBy(-15);
+          if (this.playbackMode === "wav") {
+            if (detail.direction === "right") {
+              this.catalog.seekBy(15);
+            } else if (detail.direction === "left") {
+              this.catalog.seekBy(-15);
+            }
           }
           return;
         }
@@ -3094,26 +3313,43 @@
         if (this.scene === "menu" && this.tracks.length > 0) {
           this._playCurrent();
         } else if (this.scene === "playing") {
-          this.catalog.togglePause();
-          this.requestUpdate();
+          this._togglePauseActive();
         }
         return;
       }
       if (action === "b" || action === "select") {
         if (this.scene === "playing") {
-          this.catalog.stop();
+          this._stopActive();
         }
       }
     }
+    _togglePauseActive() {
+      if (this.playbackMode === "midi") {
+        this.midiPlayer.togglePause().then(() => this.requestUpdate());
+        return;
+      }
+      this.catalog.togglePause();
+      this.requestUpdate();
+    }
+    _stopActive() {
+      if (this.playbackMode === "midi") {
+        this.midiPlayer.stop();
+        return;
+      }
+      this.catalog.stop();
+    }
     _playCurrent() {
+      this.midiPlayer.stop(false);
       const ok = this.catalog.play(this.cursor);
       if (ok) {
+        this.playbackMode = "wav";
         this.scene = "playing";
         this.elapsed = 0;
         this.duration = 0;
       }
     }
     _returnToMenu() {
+      this.playbackMode = null;
       this.scene = this.tracks.length > 0 ? "menu" : "empty";
       this.elapsed = 0;
       this.duration = 0;
@@ -3133,6 +3369,16 @@
       const mm = String(Math.floor(s4 / 60)).padStart(2, "0");
       const ss = String(s4 % 60).padStart(2, "0");
       return `${mm}:${ss}`;
+    }
+    _getPlayingTrack() {
+      if (this.playbackMode === "midi") {
+        return this.midiPlayer.getCurrentTrack();
+      }
+      return this.catalog.getCurrentTrack();
+    }
+    _isPaused() {
+      if (this.playbackMode === "midi") return this.midiPlayer.isPaused();
+      return this.catalog.isPaused();
     }
     static styles = i`
     :host {
@@ -3261,16 +3507,17 @@
           <div class="title">GAMEDUDESYNTH</div>
           <div class="rule"></div>
           <div class="empty">
-            DRAG .WAV HERE<br />
+            DRAG .WAV / .MID<br />
             TO PLAY
           </div>
         </div>
       `;
       }
       if (this.scene === "playing") {
-        const track = this.catalog.getCurrentTrack();
+        const track = this._getPlayingTrack();
         const pct = this.duration > 0 ? Math.min(100, this.elapsed / this.duration * 100) : 0;
-        const isPaused = this.catalog.isPaused();
+        const isPaused = this._isPaused();
+        const seekHint = this.playbackMode === "wav" ? "A/START = PAUSE/RESUME \xB7 B = STOP \xB7 \u2190 -15s \xB7 \u2192 +15s" : "A/START = PAUSE/RESUME \xB7 B = STOP";
         return b2`
         <div class="viewport">
           <div class="title">NOW PLAYING</div>
@@ -3280,7 +3527,7 @@
             <div class="now ${this.showBlink || isPaused ? "" : "blink-hidden"}">${isPaused ? "\u0965 PAUSED" : "\u266A PLAYING"}</div>
             <div class="time">${this._formatTime(this.elapsed)} / ${this._formatTime(this.duration)}</div>
             <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
-            <div class="hint">A/START = PAUSE/RESUME · B = STOP · ← -15s · → +15s</div>
+            <div class="hint">${seekHint}</div>
           </div>
         </div>
       `;
@@ -3301,7 +3548,7 @@
             </div>
           `)}
         </div>
-        <div class="hint">A/START PLAY · B STOP · DROP WAV</div>
+        <div class="hint">A/START PLAY · DROP WAV/MID</div>
       </div>
     `;
     }
@@ -3590,12 +3837,12 @@
         this._forwardInput(detail);
       };
       this._onDragEnter = (event) => {
-        if (!this._hasWavFile(event.dataTransfer)) return;
+        if (!this._hasPlayableFile(event.dataTransfer)) return;
         event.preventDefault();
         this.setAttribute("drag-over", "");
       };
       this._onDragOver = (event) => {
-        if (!this._hasWavFile(event.dataTransfer)) return;
+        if (!this._hasPlayableFile(event.dataTransfer)) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = "copy";
         this.setAttribute("drag-over", "");
@@ -3607,7 +3854,7 @@
       this._onDrop = (event) => {
         event.preventDefault();
         this.removeAttribute("drag-over");
-        const file = this._extractWavFile(event.dataTransfer);
+        const file = this._extractPlayableFile(event.dataTransfer);
         if (!file) return;
         this._playDroppedFile(file);
       };
@@ -3631,15 +3878,17 @@
       this.removeEventListener("dragleave", this._onDragLeave);
       this.removeEventListener("drop", this._onDrop);
     }
-    _hasWavFile(dataTransfer) {
+    _hasPlayableFile(dataTransfer) {
       if (!dataTransfer) return false;
       if (dataTransfer.files?.length) {
-        return [...dataTransfer.files].some(isWavFile);
+        return [...dataTransfer.files].some(isPlayableDropFile);
       }
       return [...dataTransfer.items ?? []].some((item) => item.kind === "file");
     }
-    _extractWavFile(dataTransfer) {
-      return [...dataTransfer?.files ?? []].find(isWavFile) ?? null;
+    /** Prefer MIDI when a drop contains both MIDI and WAV. */
+    _extractPlayableFile(dataTransfer) {
+      const files = [...dataTransfer?.files ?? []];
+      return files.find(isMidiFile) ?? files.find(isWavFile) ?? null;
     }
     _playDroppedFile(file) {
       if (!this.isOn) {
@@ -4016,6 +4265,8 @@
       this.audioActive = false;
       this.onEnabledChange = null;
       this._visualizer = null;
+      this._visualizerAudioCtx = null;
+      this._externalSource = null;
       this._raf = null;
       this._resizeObserver = null;
       this._statusEl = null;
@@ -4380,21 +4631,27 @@
       if (this._statusEl) {
         this._statusEl.textContent = "Loading Milkdrop visualizer...";
       }
-      const audioCtx = getHowlerAudioContext();
-      if (!audioCtx) {
+      const preferred = this._externalSource?.audioCtx ?? getHowlerAudioContext();
+      if (!preferred) {
         throw new Error("Web Audio is not available yet. Start playback once, then enable Visuals.");
       }
+      await this._createVisualizer(preferred);
+      this._connectAudio();
+    }
+    async _createVisualizer(audioCtx) {
       const canvas = this._getOrCreateCanvas();
       const { width, height } = this._hostSize();
       const pixelRatio = window.devicePixelRatio || 1;
       try {
         const butterchurn = await resolveButterchurn();
+        this._stopLoop();
+        this._disconnectAudio();
         this._visualizer = butterchurn.createVisualizer(audioCtx, canvas, {
           width,
           height,
           pixelRatio
         });
-        this._connectAudio();
+        this._visualizerAudioCtx = audioCtx;
         this._ready = true;
         if (this._statusEl) {
           this._statusEl.remove();
@@ -4411,10 +4668,53 @@
         throw err;
       }
     }
+    /**
+     * Tap a custom AudioContext + output node (e.g. live Game Boy APU).
+     * Recreates the visualizer when the context changes.
+     */
+    async attachAudioSource(audioCtx, outputNode) {
+      if (!audioCtx || !outputNode) return;
+      this._externalSource = { audioCtx, outputNode };
+      if (!this.enabled) return;
+      if (!this._visualizer || this._visualizerAudioCtx !== audioCtx) {
+        await this._createVisualizer(audioCtx);
+      }
+      this._connectAudio();
+      if (this.audioActive) {
+        this._startLoop();
+      }
+    }
+    /** Restore Howler master gain as the visualizer input. */
+    async attachHowlerAudio() {
+      this._externalSource = null;
+      if (!this.enabled) return;
+      const howlerCtx = getHowlerAudioContext();
+      if (!howlerCtx) return;
+      if (!this._visualizer || this._visualizerAudioCtx !== howlerCtx) {
+        await this._createVisualizer(howlerCtx);
+      }
+      this._connectAudio();
+      if (this.audioActive) {
+        this._startLoop();
+      }
+    }
     _connectAudio() {
+      if (!this._visualizer) return;
+      if (this._externalSource?.outputNode) {
+        try {
+          this._visualizer.connectAudio(this._externalSource.outputNode);
+        } catch (err) {
+          console.warn("[butterchurn] connectAudio (APU) failed", err);
+        }
+        return;
+      }
       const masterGain = getHowlerMasterGain();
-      if (this._visualizer && masterGain) {
-        this._visualizer.connectAudio(masterGain);
+      if (masterGain) {
+        try {
+          this._visualizer.connectAudio(masterGain);
+        } catch (err) {
+          console.warn("[butterchurn] connectAudio (Howler) failed", err);
+        }
       }
     }
     _disconnectAudio() {
@@ -4481,36 +4781,57 @@
     s: { action: "select" },
     S: { action: "select" }
   };
-  function getMenuCatalog() {
+  function getMenuScreen() {
     const gb = document.querySelector("gameboy-console");
-    return gb?.shadowRoot?.querySelector("game-dude-menu-screen")?.catalog ?? null;
+    return gb?.shadowRoot?.querySelector("game-dude-menu-screen") ?? null;
   }
   function initVisualizer() {
     const hostEl = document.getElementById("viz-host");
     const controlsEl = document.getElementById("viz-controls");
     if (!hostEl || !controlsEl) return;
     const viz = new ButterchurnController(hostEl, controlsEl);
-    const attachCatalog = () => {
-      const catalog = getMenuCatalog();
-      if (!catalog) {
-        requestAnimationFrame(attachCatalog);
+    const syncVizWithPlayback = async () => {
+      const screen = getMenuScreen();
+      if (!screen) return;
+      const midiActive = screen.playbackMode === "midi" && screen.midiPlayer?.isActive?.() && !screen.midiPlayer?.isPaused?.();
+      const wavPlaying = screen.catalog?.isPlaying?.();
+      try {
+        if (midiActive) {
+          const ctx = screen.midiPlayer.getAudioContext();
+          const out = screen.midiPlayer.getOutputNode();
+          if (ctx && out) {
+            await viz.attachAudioSource(ctx, out);
+          }
+        } else if (wavPlaying || screen.playbackMode === "wav") {
+          await viz.attachHowlerAudio();
+        }
+      } catch (err) {
+        console.warn("[viz] audio source attach failed", err);
+      }
+      const shouldRun = !!(midiActive || wavPlaying) && viz.isEnabled;
+      viz.setAudioActive(shouldRun);
+    };
+    const attachPlaybackHooks = () => {
+      const screen = getMenuScreen();
+      if (!screen?.catalog || !screen?.midiPlayer) {
+        requestAnimationFrame(attachPlaybackHooks);
         return;
       }
-      const syncVizWithPlayback = () => {
-        const shouldRun = !!catalog.isPlaying?.() && viz.isEnabled;
-        viz.setAudioActive(shouldRun);
-      };
       viz.onEnabledChange = () => {
         syncVizWithPlayback();
       };
-      const prevOnPlayStateChange = catalog.onPlayStateChange;
-      catalog.onPlayStateChange = (playing) => {
-        viz.setAudioActive(playing && viz.isEnabled);
-        prevOnPlayStateChange?.(playing);
+      const wrapPlayState = (target) => {
+        const prev = target.onPlayStateChange;
+        target.onPlayStateChange = (playing) => {
+          syncVizWithPlayback();
+          prev?.(playing);
+        };
       };
+      wrapPlayState(screen.catalog);
+      wrapPlayState(screen.midiPlayer);
       syncVizWithPlayback();
     };
-    attachCatalog();
+    attachPlaybackHooks();
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initVisualizer);

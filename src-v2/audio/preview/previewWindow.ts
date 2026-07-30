@@ -22,6 +22,71 @@ export function estimatePreviewPrepareMs(noteCount: number): number {
 }
 
 /**
+ * Find the densest start time for a window of maxDurationSec over sorted notes.
+ */
+export function findDensestWindowStart(
+  notes: Array<{ time: number; duration: number }>,
+  maxDurationSec: number
+): number {
+  if (notes.length === 0) return 0;
+
+  const sorted = [...notes].sort((a, b) => a.time - b.time);
+  const lastEnd = sorted.reduce(
+    (max, n) => Math.max(max, n.time + n.duration),
+    0
+  );
+  const span = Math.max(lastEnd, maxDurationSec);
+
+  if (span <= maxDurationSec) return 0;
+
+  let bestStart = 0;
+  let bestCount = -1;
+  const step = Math.max(0.25, maxDurationSec / 8);
+  for (let start = 0; start <= span - maxDurationSec; start += step) {
+    const end = start + maxDurationSec;
+    let count = 0;
+    for (const n of sorted) {
+      if (n.time >= start && n.time < end) count++;
+    }
+    if (count > bestCount) {
+      bestCount = count;
+      bestStart = start;
+    }
+  }
+  return bestStart;
+}
+
+/**
+ * Slice MIDI notes into a fixed preview window (times relative to window start).
+ */
+export function sliceNotesToWindow(
+  notes: MIDINote[],
+  windowStart: number,
+  maxDurationSec: number,
+  options: { applyCap?: boolean } = {}
+): PreviewNote[] {
+  const windowEnd = windowStart + maxDurationSec;
+  let windowNotes: PreviewNote[] = notes
+    .filter(n => n.time >= windowStart && n.time < windowEnd)
+    .map(n => ({
+      midiNote: n.midi,
+      startTime: n.time - windowStart,
+      duration: Math.min(n.duration, windowEnd - n.time),
+      velocity: n.velocity,
+    }))
+    .sort((a, b) => a.startTime - b.startTime);
+
+  if (options.applyCap !== false) {
+    const cap = previewNoteCap(maxDurationSec);
+    if (windowNotes.length > cap) {
+      windowNotes = thinNotesToCap(windowNotes, cap);
+    }
+  }
+
+  return windowNotes;
+}
+
+/**
  * Slide a window of maxDurationSec across notes and pick the densest segment.
  */
 export function pickPreviewWindow(
@@ -32,48 +97,8 @@ export function pickPreviewWindow(
     return { windowStart: 0, notes: [], duration: maxDurationSec };
   }
 
-  const sorted = [...notes].sort((a, b) => a.time - b.time);
-  const lastEnd = sorted.reduce(
-    (max, n) => Math.max(max, n.time + n.duration),
-    0
-  );
-  const span = Math.max(lastEnd, maxDurationSec);
-
-  let bestStart = 0;
-  let bestCount = -1;
-
-  if (span <= maxDurationSec) {
-    bestStart = 0;
-    bestCount = sorted.length;
-  } else {
-    const step = Math.max(0.25, maxDurationSec / 8);
-    for (let start = 0; start <= span - maxDurationSec; start += step) {
-      const end = start + maxDurationSec;
-      let count = 0;
-      for (const n of sorted) {
-        if (n.time >= start && n.time < end) count++;
-      }
-      if (count > bestCount) {
-        bestCount = count;
-        bestStart = start;
-      }
-    }
-  }
-
-  const windowEnd = bestStart + maxDurationSec;
-  let windowNotes: PreviewNote[] = sorted
-    .filter(n => n.time >= bestStart && n.time < windowEnd)
-    .map(n => ({
-      midiNote: n.midi,
-      startTime: n.time - bestStart,
-      duration: Math.min(n.duration, windowEnd - n.time),
-      velocity: n.velocity,
-    }));
-
-  const cap = previewNoteCap(maxDurationSec);
-  if (windowNotes.length > cap) {
-    windowNotes = thinNotesToCap(windowNotes, cap);
-  }
+  const bestStart = findDensestWindowStart(notes, maxDurationSec);
+  const windowNotes = sliceNotesToWindow(notes, bestStart, maxDurationSec);
 
   const actualEnd = windowNotes.reduce(
     (max, n) => Math.max(max, n.startTime + n.duration),

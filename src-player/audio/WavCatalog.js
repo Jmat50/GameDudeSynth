@@ -19,6 +19,18 @@ export function isWavFile(file) {
   return type === 'audio/wav' || type === 'audio/x-wav' || type === 'audio/wave';
 }
 
+export function isMidiFile(file) {
+  if (!file) return false;
+  const name = file.name?.toLowerCase() ?? '';
+  if (name.endsWith('.mid') || name.endsWith('.midi')) return true;
+  const type = file.type?.toLowerCase() ?? '';
+  return type === 'audio/midi' || type === 'audio/x-midi' || type === 'audio/mid';
+}
+
+export function isPlayableDropFile(file) {
+  return isWavFile(file) || isMidiFile(file);
+}
+
 export class WavCatalog {
   constructor() {
     this.manifestTracks = [];

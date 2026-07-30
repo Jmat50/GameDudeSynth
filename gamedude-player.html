@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GameDudeSynth — WAV Player</title>
+  <title>GameDudeSynth — Player</title>
   <link rel="stylesheet" href="./src-player/page.css" />
   <link rel="stylesheet" href="./src-player/visualizer/visualizer.css" />
 </head>
@@ -30,7 +30,7 @@
 
   <header class="page-header">
     <h1>GameDudeSynth</h1>
-    <p class="tagline">WAV Player</p>
+    <p class="tagline">WAV &amp; MIDI Player</p>
     <nav>
       <a href="./engine.html">← MIDI Export</a>
     </nav>
@@ -39,9 +39,11 @@
   <gameboy-console></gameboy-console>
 
   <p class="help">
-    Slide power ON · any `.wav` file can be dragged onto the Game Boy to play · ↑↓ select · A/START play or pause · B stop · ←/→ skip ±15s while playing
+    Slide power ON · drag a `.wav` or `.mid` / `.midi` onto the Game Boy to play · MIDI synthesizes live through the Game Boy engine · ↑↓ select · A/START play or pause · B stop · ←/→ skip ±15s while playing WAV
   </p>
 
+  <!-- Engine bundle exposes window.GameDudeSynthV2 for live MIDI synthesis. -->
+  <script src="./public/gameboy-player.iife.js"></script>
   <!-- butterchurn must load before the player bundle (sets window.butterchurn). -->
   <script src="./public/vendor/butterchurn/butterchurn.iife.js"></script>
   <script src="./public/gameboy-ui.iife.js"></script>

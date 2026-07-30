@@ -15,7 +15,11 @@ import { needsAssignmentReview } from '../audio/midi/RoleAllocator';
 import { gmProgramLabel } from '../audio/midi/gmPrograms';
 import { GameBoyArranger, type ArrangerConfig } from '../audio/arranger/GameBoyArranger';
 import type { MIDITrack, MIDINote } from '../audio/midi/TrackAnalyzer';
-import { pickPreviewWindow } from '../audio/preview/previewWindow';
+import {
+  findDensestWindowStart,
+  pickPreviewWindow,
+  sliceNotesToWindow,
+} from '../audio/preview/previewWindow';
 import type { 
   ChannelNote, 
   ChannelAssignment, 
@@ -26,6 +30,7 @@ import type {
   TrackOverride,
   TrackAnalysis,
   TrackPreviewClip,
+  MixPreviewClip,
   PreviewNote,
 } from '../types';
 
@@ -78,6 +83,7 @@ export class GameBoyPlayer {
   private pendingNotes: ChannelNote[] = [];
   private scheduleIndex: number = 0;
   private schedulerInterval: ReturnType<typeof setInterval> | null = null;
+  private completionInterval: ReturnType<typeof setInterval> | null = null;
   private readonly SCHEDULE_AHEAD_TIME = 2.0; // Schedule 2 seconds ahead
   private readonly SCHEDULER_INTERVAL_MS = 250; // Check every 250ms
 
@@ -178,14 +184,10 @@ export class GameBoyPlayer {
       `Playing MIDI: ${gbNotes.length} notes, ${assignments.length}/${nonEmptyTrackCount} mapped tracks, ` +
       `${midi.duration.toFixed(1)}s duration`
     );
-    
-    // Schedule auto-stop
-    const stopDelay = (midi.duration + 1) * 1000;
-    setTimeout(() => {
-      if (this.isPlaying && this.playbackStartTime === startTime) {
-        this.isPlaying = false;
-      }
-    }, stopDelay);
+
+    // End detection uses AudioContext time (not wall clock) so pause via
+    // AudioContext.suspend() does not falsely complete the song.
+    this.startCompletionWatcher(midi.duration);
     
     return this.currentPlaybackInfo;
   }
@@ -440,6 +442,34 @@ export class GameBoyPlayer {
       this.schedulerInterval = null;
     }
   }
+
+  /**
+   * Watch AudioContext elapsed time and clear isPlaying when the song ends.
+   * Uses audio time so suspend()/resume() pause does not skew completion.
+   */
+  private startCompletionWatcher(durationSeconds: number): void {
+    this.stopCompletionWatcher();
+    const endAt = durationSeconds + 0.5;
+    this.completionInterval = setInterval(() => {
+      if (!this.isPlaying) {
+        this.stopCompletionWatcher();
+        return;
+      }
+      const elapsed = this.apu.getCurrentTime() - this.playbackStartTime;
+      if (elapsed >= endAt) {
+        this.isPlaying = false;
+        this.stopCompletionWatcher();
+        this.stopScheduler();
+      }
+    }, this.SCHEDULER_INTERVAL_MS);
+  }
+
+  private stopCompletionWatcher(): void {
+    if (this.completionInterval) {
+      clearInterval(this.completionInterval);
+      this.completionInterval = null;
+    }
+  }
   
   /**
    * Stop playback.
@@ -447,6 +477,7 @@ export class GameBoyPlayer {
   stop(): void {
     this.isPlaying = false;
     this.stopScheduler();
+    this.stopCompletionWatcher();
     this.pendingNotes = [];
     this.scheduleIndex = 0;
     this.apu.stopAll();
@@ -639,6 +670,88 @@ export class GameBoyPlayer {
   }
 
   /**
+   * Build a shared-window mix of all mapped, non-muted parts for combined preview.
+   */
+  buildMixPreviewClip(
+    midiData: ArrayBuffer,
+    overrides: TrackOverride[] = [],
+    options: { maxDurationSec?: number } = {}
+  ): MixPreviewClip | null {
+    const maxDurationSec = options.maxDurationSec ?? 10;
+    const midi = new Midi(midiData);
+    const bpm = midi.header.tempos[0]?.bpm || this.config.defaultBPM;
+    this.arpeggiator.setBPM(bpm);
+
+    const tracks = this.convertMIDITracks(midi);
+    this.applyProgramOverrides(tracks, overrides);
+    const { assignments, analyses } = this.mapper.mapTracks(tracks, overrides);
+
+    const mapped = assignments
+      .map(assignment => {
+        const analysis = analyses.find(a => a.trackIndex === assignment.trackIndex);
+        const track = tracks[assignment.trackIndex];
+        if (!track || !analysis || analysis.muted || analysis.noteCount === 0) {
+          return null;
+        }
+        return { assignment, analysis, track };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    if (mapped.length === 0) return null;
+
+    const allNotes = mapped.flatMap(m => m.track.notes);
+    const windowStart = findDensestWindowStart(allNotes, maxDurationSec);
+
+    const parts: TrackPreviewClip[] = [];
+    let duration = 0.1;
+
+    for (const { assignment, analysis, track } of mapped) {
+      let previewNotes = sliceNotesToWindow(track.notes, windowStart, maxDurationSec);
+      if (previewNotes.length === 0) continue;
+
+      if (assignment.shouldArpeggiate) {
+        const arpNotes = this.arpeggiator.arpeggiate(
+          previewNotes.map(n => ({
+            midiNote: n.midiNote,
+            time: n.startTime,
+            duration: n.duration,
+            velocity: n.velocity,
+          }))
+        );
+        previewNotes = arpNotes.map(n => ({
+          midiNote: n.midiNote,
+          startTime: n.time,
+          duration: n.duration,
+          velocity: n.velocity,
+        }));
+      }
+
+      const partDuration = previewNotes.reduce(
+        (max, n) => Math.max(max, n.startTime + n.duration),
+        0
+      );
+      duration = Math.max(duration, Math.min(maxDurationSec, partDuration));
+
+      parts.push({
+        trackIndex: assignment.trackIndex,
+        duration: Math.min(maxDurationSec, Math.max(partDuration, 0.1)),
+        isDrums: analysis.isDrums ?? track.channel === 9,
+        program: track.program,
+        notes: previewNotes,
+        assignment,
+      });
+    }
+
+    if (parts.length === 0) return null;
+
+    return {
+      duration: Math.min(maxDurationSec, duration),
+      windowStart,
+      parts,
+    };
+  }
+
+  /**
    * Preview one part through the Game Boy APU (export timbre).
    */
   async previewTrackGB(clip: TrackPreviewClip): Promise<void> {
@@ -673,6 +786,46 @@ export class GameBoyPlayer {
         this.previewGbStopTimer = null;
         resolve();
       }, clip.duration * 1000 + 200);
+    });
+  }
+
+  /**
+   * Preview all mapped parts together through the Game Boy APU (export mix).
+   */
+  async previewMixGB(mix: MixPreviewClip): Promise<void> {
+    const parts = mix.parts.filter(p => p.assignment && p.notes.length > 0);
+    if (parts.length === 0) {
+      throw new Error('No mapped parts to preview');
+    }
+
+    const ctx = await this.ensurePreviewContext();
+    const apu = this.previewApu!;
+    await apu.resume();
+    apu.stopAll();
+
+    if (this.previewGbStopTimer) {
+      clearTimeout(this.previewGbStopTimer);
+      this.previewGbStopTimer = null;
+    }
+
+    const startAt = ctx.currentTime + 0.05;
+    for (const part of parts) {
+      this.applyChannelSettings(part.assignment!, apu);
+      const gbNotes = this.previewNotesToChannelNotes(part.notes, part.assignment!);
+      for (const note of gbNotes) {
+        apu.scheduleNote({
+          ...note,
+          startTime: startAt + note.startTime,
+        });
+      }
+    }
+
+    return new Promise<void>(resolve => {
+      this.previewGbStopTimer = setTimeout(() => {
+        apu.stopAll();
+        this.previewGbStopTimer = null;
+        resolve();
+      }, mix.duration * 1000 + 200);
     });
   }
 

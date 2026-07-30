@@ -5,7 +5,7 @@ import './GameboyControlsGame.js';
 import { LitElement, html, css } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { Howler } from 'howler';
-import { isWavFile } from '../../../src-player/audio/WavCatalog.js';
+import { isWavFile, isMidiFile, isPlayableDropFile } from '../../../src-player/audio/WavCatalog.js';
 
 export class GameboyConsole extends LitElement {
   static properties = {
@@ -26,13 +26,13 @@ export class GameboyConsole extends LitElement {
     };
 
     this._onDragEnter = (event) => {
-      if (!this._hasWavFile(event.dataTransfer)) return;
+      if (!this._hasPlayableFile(event.dataTransfer)) return;
       event.preventDefault();
       this.setAttribute('drag-over', '');
     };
 
     this._onDragOver = (event) => {
-      if (!this._hasWavFile(event.dataTransfer)) return;
+      if (!this._hasPlayableFile(event.dataTransfer)) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = 'copy';
       this.setAttribute('drag-over', '');
@@ -46,7 +46,7 @@ export class GameboyConsole extends LitElement {
     this._onDrop = (event) => {
       event.preventDefault();
       this.removeAttribute('drag-over');
-      const file = this._extractWavFile(event.dataTransfer);
+      const file = this._extractPlayableFile(event.dataTransfer);
       if (!file) return;
       this._playDroppedFile(file);
     };
@@ -74,16 +74,18 @@ export class GameboyConsole extends LitElement {
     this.removeEventListener('drop', this._onDrop);
   }
 
-  _hasWavFile(dataTransfer) {
+  _hasPlayableFile(dataTransfer) {
     if (!dataTransfer) return false;
     if (dataTransfer.files?.length) {
-      return [...dataTransfer.files].some(isWavFile);
+      return [...dataTransfer.files].some(isPlayableDropFile);
     }
     return [...(dataTransfer.items ?? [])].some((item) => item.kind === 'file');
   }
 
-  _extractWavFile(dataTransfer) {
-    return [...(dataTransfer?.files ?? [])].find(isWavFile) ?? null;
+  /** Prefer MIDI when a drop contains both MIDI and WAV. */
+  _extractPlayableFile(dataTransfer) {
+    const files = [...(dataTransfer?.files ?? [])];
+    return files.find(isMidiFile) ?? files.find(isWavFile) ?? null;
   }
 
   _playDroppedFile(file) {

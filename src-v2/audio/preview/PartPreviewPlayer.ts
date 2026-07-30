@@ -23,38 +23,48 @@ export class PartPreviewPlayer {
     clip: TrackPreviewClip,
     options: PartPreviewPlayOptions = {}
   ): Promise<void> {
+    return this.playMix([clip], options);
+  }
+
+  /**
+   * Lightweight multi-part preview — schedules all clips on one shared timeline.
+   */
+  async playMix(
+    clips: TrackPreviewClip[],
+    options: PartPreviewPlayOptions = {}
+  ): Promise<void> {
     this.stop(true);
     this.stoppedEarly = false;
 
+    const active = clips.filter(c => c.notes.length > 0);
+    if (active.length === 0) return;
+
     const ctx = await this.ensureContext();
     const master = this.masterGain!;
-
-    if (clip.notes.length === 0) {
-      return;
-    }
-
+    const totalSec = Math.max(...active.map(c => c.duration), 0.1);
     const startAt = ctx.currentTime + 0.05;
-    const totalSec = clip.duration;
 
     return new Promise<void>((resolve, reject) => {
       this.playResolve = resolve;
       this.playReject = reject;
 
-      for (const note of clip.notes) {
-        const when = startAt + note.startTime;
-        const vel = note.velocity / 127;
-        if (clip.isDrums) {
-          this.scheduleDrumHit(ctx, master, note.midiNote, when, note.duration, vel);
-        } else {
-          this.scheduleMelodicNote(
-            ctx,
-            master,
-            note.midiNote,
-            when,
-            note.duration,
-            vel,
-            clip.program
-          );
+      for (const clip of active) {
+        for (const note of clip.notes) {
+          const when = startAt + note.startTime;
+          const vel = note.velocity / 127;
+          if (clip.isDrums) {
+            this.scheduleDrumHit(ctx, master, note.midiNote, when, note.duration, vel);
+          } else {
+            this.scheduleMelodicNote(
+              ctx,
+              master,
+              note.midiNote,
+              when,
+              note.duration,
+              vel,
+              clip.program
+            );
+          }
         }
       }
 

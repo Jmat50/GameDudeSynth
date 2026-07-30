@@ -18,9 +18,9 @@ const KEY_MAP = {
   S: { action: 'select' },
 };
 
-function getMenuCatalog() {
+function getMenuScreen() {
   const gb = document.querySelector('gameboy-console');
-  return gb?.shadowRoot?.querySelector('game-dude-menu-screen')?.catalog ?? null;
+  return gb?.shadowRoot?.querySelector('game-dude-menu-screen') ?? null;
 }
 
 function initVisualizer() {
@@ -30,32 +30,59 @@ function initVisualizer() {
 
   const viz = new ButterchurnController(hostEl, controlsEl);
 
-  const attachCatalog = () => {
-    const catalog = getMenuCatalog();
-    if (!catalog) {
-      requestAnimationFrame(attachCatalog);
-      return;
+  const syncVizWithPlayback = async () => {
+    const screen = getMenuScreen();
+    if (!screen) return;
+
+    const midiActive =
+      screen.playbackMode === 'midi' &&
+      screen.midiPlayer?.isActive?.() &&
+      !screen.midiPlayer?.isPaused?.();
+    const wavPlaying = screen.catalog?.isPlaying?.();
+
+    try {
+      if (midiActive) {
+        const ctx = screen.midiPlayer.getAudioContext();
+        const out = screen.midiPlayer.getOutputNode();
+        if (ctx && out) {
+          await viz.attachAudioSource(ctx, out);
+        }
+      } else if (wavPlaying || screen.playbackMode === 'wav') {
+        await viz.attachHowlerAudio();
+      }
+    } catch (err) {
+      console.warn('[viz] audio source attach failed', err);
     }
 
-    const syncVizWithPlayback = () => {
-      const shouldRun = !!catalog.isPlaying?.() && viz.isEnabled;
-      viz.setAudioActive(shouldRun);
-    };
+    const shouldRun = !!(midiActive || wavPlaying) && viz.isEnabled;
+    viz.setAudioActive(shouldRun);
+  };
+
+  const attachPlaybackHooks = () => {
+    const screen = getMenuScreen();
+    if (!screen?.catalog || !screen?.midiPlayer) {
+      requestAnimationFrame(attachPlaybackHooks);
+      return;
+    }
 
     viz.onEnabledChange = () => {
       syncVizWithPlayback();
     };
 
-    const prevOnPlayStateChange = catalog.onPlayStateChange;
-    catalog.onPlayStateChange = (playing) => {
-      viz.setAudioActive(playing && viz.isEnabled);
-      prevOnPlayStateChange?.(playing);
+    const wrapPlayState = (target) => {
+      const prev = target.onPlayStateChange;
+      target.onPlayStateChange = (playing) => {
+        syncVizWithPlayback();
+        prev?.(playing);
+      };
     };
 
+    wrapPlayState(screen.catalog);
+    wrapPlayState(screen.midiPlayer);
     syncVizWithPlayback();
   };
 
-  attachCatalog();
+  attachPlaybackHooks();
 }
 
 if (document.readyState === 'loading') {

@@ -2227,6 +2227,7 @@ var GameDudeSynthV2 = (() => {
     createDutyWave: () => createDutyWave,
     createTestChannels: () => createTestChannels,
     estimatePreviewPrepareMs: () => estimatePreviewPrepareMs,
+    findDensestWindowStart: () => findDensestWindowStart,
     generateBassWave: () => generateBassWave,
     generateLeadWave: () => generateLeadWave,
     generateNoiseBuffer: () => generateNoiseBuffer,
@@ -2246,6 +2247,7 @@ var GameDudeSynthV2 = (() => {
     previewNoteCap: () => previewNoteCap,
     runAllAudioTests: () => runAllAudioTests,
     runVerificationTests: () => runVerificationTests,
+    sliceNotesToWindow: () => sliceNotesToWindow,
     testCombined: () => testCombined,
     testDutyCycles: () => testDutyCycles,
     testNoiseChannel: () => testNoiseChannel,
@@ -3405,6 +3407,12 @@ var GameDudeSynthV2 = (() => {
      */
     getAudioContext() {
       return this.audioContext;
+    }
+    /**
+     * Master mix node (pre-limiter). Suitable for AnalyserNode / visualizer taps.
+     */
+    getOutputNode() {
+      return this.masterGain;
     }
     /**
      * Resume audio context if suspended.
@@ -5151,46 +5159,53 @@ var GameDudeSynthV2 = (() => {
   function estimatePreviewPrepareMs(noteCount) {
     return Math.min(800, Math.max(80, Math.round(noteCount * 0.8)));
   }
-  function pickPreviewWindow(notes, maxDurationSec) {
-    if (notes.length === 0) {
-      return { windowStart: 0, notes: [], duration: maxDurationSec };
-    }
+  function findDensestWindowStart(notes, maxDurationSec) {
+    if (notes.length === 0) return 0;
     const sorted = [...notes].sort((a, b) => a.time - b.time);
     const lastEnd = sorted.reduce(
       (max, n) => Math.max(max, n.time + n.duration),
       0
     );
     const span = Math.max(lastEnd, maxDurationSec);
+    if (span <= maxDurationSec) return 0;
     let bestStart = 0;
     let bestCount = -1;
-    if (span <= maxDurationSec) {
-      bestStart = 0;
-      bestCount = sorted.length;
-    } else {
-      const step = Math.max(0.25, maxDurationSec / 8);
-      for (let start = 0; start <= span - maxDurationSec; start += step) {
-        const end = start + maxDurationSec;
-        let count = 0;
-        for (const n of sorted) {
-          if (n.time >= start && n.time < end) count++;
-        }
-        if (count > bestCount) {
-          bestCount = count;
-          bestStart = start;
-        }
+    const step = Math.max(0.25, maxDurationSec / 8);
+    for (let start = 0; start <= span - maxDurationSec; start += step) {
+      const end = start + maxDurationSec;
+      let count = 0;
+      for (const n of sorted) {
+        if (n.time >= start && n.time < end) count++;
+      }
+      if (count > bestCount) {
+        bestCount = count;
+        bestStart = start;
       }
     }
-    const windowEnd = bestStart + maxDurationSec;
-    let windowNotes = sorted.filter((n) => n.time >= bestStart && n.time < windowEnd).map((n) => ({
+    return bestStart;
+  }
+  function sliceNotesToWindow(notes, windowStart, maxDurationSec, options = {}) {
+    const windowEnd = windowStart + maxDurationSec;
+    let windowNotes = notes.filter((n) => n.time >= windowStart && n.time < windowEnd).map((n) => ({
       midiNote: n.midi,
-      startTime: n.time - bestStart,
+      startTime: n.time - windowStart,
       duration: Math.min(n.duration, windowEnd - n.time),
       velocity: n.velocity
-    }));
-    const cap = previewNoteCap(maxDurationSec);
-    if (windowNotes.length > cap) {
-      windowNotes = thinNotesToCap(windowNotes, cap);
+    })).sort((a, b) => a.startTime - b.startTime);
+    if (options.applyCap !== false) {
+      const cap = previewNoteCap(maxDurationSec);
+      if (windowNotes.length > cap) {
+        windowNotes = thinNotesToCap(windowNotes, cap);
+      }
     }
+    return windowNotes;
+  }
+  function pickPreviewWindow(notes, maxDurationSec) {
+    if (notes.length === 0) {
+      return { windowStart: 0, notes: [], duration: maxDurationSec };
+    }
+    const bestStart = findDensestWindowStart(notes, maxDurationSec);
+    const windowNotes = sliceNotesToWindow(notes, bestStart, maxDurationSec);
     const actualEnd = windowNotes.reduce(
       (max, n) => Math.max(max, n.startTime + n.duration),
       0
@@ -5250,6 +5265,7 @@ var GameDudeSynthV2 = (() => {
     pendingNotes = [];
     scheduleIndex = 0;
     schedulerInterval = null;
+    completionInterval = null;
     SCHEDULE_AHEAD_TIME = 2;
     // Schedule 2 seconds ahead
     SCHEDULER_INTERVAL_MS = 250;
@@ -5320,12 +5336,7 @@ var GameDudeSynthV2 = (() => {
       console.log(
         `Playing MIDI: ${gbNotes.length} notes, ${assignments.length}/${nonEmptyTrackCount} mapped tracks, ${midi.duration.toFixed(1)}s duration`
       );
-      const stopDelay = (midi.duration + 1) * 1e3;
-      setTimeout(() => {
-        if (this.isPlaying && this.playbackStartTime === startTime) {
-          this.isPlaying = false;
-        }
-      }, stopDelay);
+      this.startCompletionWatcher(midi.duration);
       return this.currentPlaybackInfo;
     }
     /**
@@ -5511,11 +5522,38 @@ var GameDudeSynthV2 = (() => {
       }
     }
     /**
+     * Watch AudioContext elapsed time and clear isPlaying when the song ends.
+     * Uses audio time so suspend()/resume() pause does not skew completion.
+     */
+    startCompletionWatcher(durationSeconds) {
+      this.stopCompletionWatcher();
+      const endAt = durationSeconds + 0.5;
+      this.completionInterval = setInterval(() => {
+        if (!this.isPlaying) {
+          this.stopCompletionWatcher();
+          return;
+        }
+        const elapsed = this.apu.getCurrentTime() - this.playbackStartTime;
+        if (elapsed >= endAt) {
+          this.isPlaying = false;
+          this.stopCompletionWatcher();
+          this.stopScheduler();
+        }
+      }, this.SCHEDULER_INTERVAL_MS);
+    }
+    stopCompletionWatcher() {
+      if (this.completionInterval) {
+        clearInterval(this.completionInterval);
+        this.completionInterval = null;
+      }
+    }
+    /**
      * Stop playback.
      */
     stop() {
       this.isPlaying = false;
       this.stopScheduler();
+      this.stopCompletionWatcher();
       this.pendingNotes = [];
       this.scheduleIndex = 0;
       this.apu.stopAll();
@@ -5675,6 +5713,70 @@ var GameDudeSynthV2 = (() => {
       };
     }
     /**
+     * Build a shared-window mix of all mapped, non-muted parts for combined preview.
+     */
+    buildMixPreviewClip(midiData, overrides = [], options = {}) {
+      const maxDurationSec = options.maxDurationSec ?? 10;
+      const midi = new import_midi.Midi(midiData);
+      const bpm = midi.header.tempos[0]?.bpm || this.config.defaultBPM;
+      this.arpeggiator.setBPM(bpm);
+      const tracks = this.convertMIDITracks(midi);
+      this.applyProgramOverrides(tracks, overrides);
+      const { assignments, analyses } = this.mapper.mapTracks(tracks, overrides);
+      const mapped = assignments.map((assignment) => {
+        const analysis = analyses.find((a) => a.trackIndex === assignment.trackIndex);
+        const track = tracks[assignment.trackIndex];
+        if (!track || !analysis || analysis.muted || analysis.noteCount === 0) {
+          return null;
+        }
+        return { assignment, analysis, track };
+      }).filter((x) => x !== null);
+      if (mapped.length === 0) return null;
+      const allNotes = mapped.flatMap((m) => m.track.notes);
+      const windowStart = findDensestWindowStart(allNotes, maxDurationSec);
+      const parts = [];
+      let duration = 0.1;
+      for (const { assignment, analysis, track } of mapped) {
+        let previewNotes = sliceNotesToWindow(track.notes, windowStart, maxDurationSec);
+        if (previewNotes.length === 0) continue;
+        if (assignment.shouldArpeggiate) {
+          const arpNotes = this.arpeggiator.arpeggiate(
+            previewNotes.map((n) => ({
+              midiNote: n.midiNote,
+              time: n.startTime,
+              duration: n.duration,
+              velocity: n.velocity
+            }))
+          );
+          previewNotes = arpNotes.map((n) => ({
+            midiNote: n.midiNote,
+            startTime: n.time,
+            duration: n.duration,
+            velocity: n.velocity
+          }));
+        }
+        const partDuration = previewNotes.reduce(
+          (max, n) => Math.max(max, n.startTime + n.duration),
+          0
+        );
+        duration = Math.max(duration, Math.min(maxDurationSec, partDuration));
+        parts.push({
+          trackIndex: assignment.trackIndex,
+          duration: Math.min(maxDurationSec, Math.max(partDuration, 0.1)),
+          isDrums: analysis.isDrums ?? track.channel === 9,
+          program: track.program,
+          notes: previewNotes,
+          assignment
+        });
+      }
+      if (parts.length === 0) return null;
+      return {
+        duration: Math.min(maxDurationSec, duration),
+        windowStart,
+        parts
+      };
+    }
+    /**
      * Preview one part through the Game Boy APU (export timbre).
      */
     async previewTrackGB(clip) {
@@ -5704,6 +5806,41 @@ var GameDudeSynthV2 = (() => {
           this.previewGbStopTimer = null;
           resolve();
         }, clip.duration * 1e3 + 200);
+      });
+    }
+    /**
+     * Preview all mapped parts together through the Game Boy APU (export mix).
+     */
+    async previewMixGB(mix) {
+      const parts = mix.parts.filter((p) => p.assignment && p.notes.length > 0);
+      if (parts.length === 0) {
+        throw new Error("No mapped parts to preview");
+      }
+      const ctx = await this.ensurePreviewContext();
+      const apu = this.previewApu;
+      await apu.resume();
+      apu.stopAll();
+      if (this.previewGbStopTimer) {
+        clearTimeout(this.previewGbStopTimer);
+        this.previewGbStopTimer = null;
+      }
+      const startAt = ctx.currentTime + 0.05;
+      for (const part of parts) {
+        this.applyChannelSettings(part.assignment, apu);
+        const gbNotes = this.previewNotesToChannelNotes(part.notes, part.assignment);
+        for (const note of gbNotes) {
+          apu.scheduleNote({
+            ...note,
+            startTime: startAt + note.startTime
+          });
+        }
+      }
+      return new Promise((resolve) => {
+        this.previewGbStopTimer = setTimeout(() => {
+          apu.stopAll();
+          this.previewGbStopTimer = null;
+          resolve();
+        }, mix.duration * 1e3 + 200);
       });
     }
     /**
@@ -5763,33 +5900,40 @@ var GameDudeSynthV2 = (() => {
     progressTimer = null;
     stoppedEarly = false;
     async play(clip, options = {}) {
+      return this.playMix([clip], options);
+    }
+    /**
+     * Lightweight multi-part preview — schedules all clips on one shared timeline.
+     */
+    async playMix(clips, options = {}) {
       this.stop(true);
       this.stoppedEarly = false;
+      const active = clips.filter((c) => c.notes.length > 0);
+      if (active.length === 0) return;
       const ctx = await this.ensureContext();
       const master = this.masterGain;
-      if (clip.notes.length === 0) {
-        return;
-      }
+      const totalSec = Math.max(...active.map((c) => c.duration), 0.1);
       const startAt = ctx.currentTime + 0.05;
-      const totalSec = clip.duration;
       return new Promise((resolve, reject) => {
         this.playResolve = resolve;
         this.playReject = reject;
-        for (const note of clip.notes) {
-          const when = startAt + note.startTime;
-          const vel = note.velocity / 127;
-          if (clip.isDrums) {
-            this.scheduleDrumHit(ctx, master, note.midiNote, when, note.duration, vel);
-          } else {
-            this.scheduleMelodicNote(
-              ctx,
-              master,
-              note.midiNote,
-              when,
-              note.duration,
-              vel,
-              clip.program
-            );
+        for (const clip of active) {
+          for (const note of clip.notes) {
+            const when = startAt + note.startTime;
+            const vel = note.velocity / 127;
+            if (clip.isDrums) {
+              this.scheduleDrumHit(ctx, master, note.midiNote, when, note.duration, vel);
+            } else {
+              this.scheduleMelodicNote(
+                ctx,
+                master,
+                note.midiNote,
+                when,
+                note.duration,
+                vel,
+                clip.program
+              );
+            }
           }
         }
         if (options.onProgress) {

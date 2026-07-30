@@ -228,3 +228,12 @@ export interface TrackPreviewClip {
   notes: PreviewNote[];
   assignment?: ChannelAssignment;
 }
+
+/**
+ * Shared-window mix of mapped parts for combined preview (export sample).
+ */
+export interface MixPreviewClip {
+  duration: number;
+  windowStart: number;
+  parts: TrackPreviewClip[];
+}

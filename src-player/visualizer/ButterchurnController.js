@@ -72,6 +72,8 @@ export class ButterchurnController {
     this.audioActive = false;
     this.onEnabledChange = null;
     this._visualizer = null;
+    this._visualizerAudioCtx = null;
+    this._externalSource = null; // { audioCtx, outputNode } for live APU
     this._raf = null;
     this._resizeObserver = null;
     this._statusEl = null;
@@ -495,24 +497,30 @@ export class ButterchurnController {
       this._statusEl.textContent = 'Loading Milkdrop visualizer...';
     }
 
-    const audioCtx = getHowlerAudioContext();
-    if (!audioCtx) {
+    const preferred = this._externalSource?.audioCtx ?? getHowlerAudioContext();
+    if (!preferred) {
       throw new Error('Web Audio is not available yet. Start playback once, then enable Visuals.');
     }
 
+    await this._createVisualizer(preferred);
+    this._connectAudio();
+  }
+
+  async _createVisualizer(audioCtx) {
     const canvas = this._getOrCreateCanvas();
     const { width, height } = this._hostSize();
     const pixelRatio = window.devicePixelRatio || 1;
 
     try {
       const butterchurn = await resolveButterchurn();
+      this._stopLoop();
+      this._disconnectAudio();
       this._visualizer = butterchurn.createVisualizer(audioCtx, canvas, {
         width,
         height,
         pixelRatio,
       });
-
-      this._connectAudio();
+      this._visualizerAudioCtx = audioCtx;
       this._ready = true;
 
       if (this._statusEl) {
@@ -535,10 +543,61 @@ export class ButterchurnController {
     }
   }
 
+  /**
+   * Tap a custom AudioContext + output node (e.g. live Game Boy APU).
+   * Recreates the visualizer when the context changes.
+   */
+  async attachAudioSource(audioCtx, outputNode) {
+    if (!audioCtx || !outputNode) return;
+    this._externalSource = { audioCtx, outputNode };
+
+    if (!this.enabled) return;
+
+    if (!this._visualizer || this._visualizerAudioCtx !== audioCtx) {
+      await this._createVisualizer(audioCtx);
+    }
+    this._connectAudio();
+    if (this.audioActive) {
+      this._startLoop();
+    }
+  }
+
+  /** Restore Howler master gain as the visualizer input. */
+  async attachHowlerAudio() {
+    this._externalSource = null;
+    if (!this.enabled) return;
+
+    const howlerCtx = getHowlerAudioContext();
+    if (!howlerCtx) return;
+
+    if (!this._visualizer || this._visualizerAudioCtx !== howlerCtx) {
+      await this._createVisualizer(howlerCtx);
+    }
+    this._connectAudio();
+    if (this.audioActive) {
+      this._startLoop();
+    }
+  }
+
   _connectAudio() {
+    if (!this._visualizer) return;
+
+    if (this._externalSource?.outputNode) {
+      try {
+        this._visualizer.connectAudio(this._externalSource.outputNode);
+      } catch (err) {
+        console.warn('[butterchurn] connectAudio (APU) failed', err);
+      }
+      return;
+    }
+
     const masterGain = getHowlerMasterGain();
-    if (this._visualizer && masterGain) {
-      this._visualizer.connectAudio(masterGain);
+    if (masterGain) {
+      try {
+        this._visualizer.connectAudio(masterGain);
+      } catch (err) {
+        console.warn('[butterchurn] connectAudio (Howler) failed', err);
+      }
     }
   }
 

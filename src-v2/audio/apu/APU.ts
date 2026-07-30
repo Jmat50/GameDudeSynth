@@ -172,6 +172,13 @@ export class GameBoyAPU {
   getAudioContext(): AudioContext {
     return this.audioContext;
   }
+
+  /**
+   * Master mix node (pre-limiter). Suitable for AnalyserNode / visualizer taps.
+   */
+  getOutputNode(): GainNode {
+    return this.masterGain;
+  }
   
   /**
    * Resume audio context if suspended.

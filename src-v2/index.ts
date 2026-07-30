@@ -54,6 +54,8 @@ export {
 export { PartPreviewPlayer, type PartPreviewPlayOptions } from './audio/preview/PartPreviewPlayer';
 export {
   pickPreviewWindow,
+  findDensestWindowStart,
+  sliceNotesToWindow,
   estimatePreviewPrepareMs,
   previewNoteCap,
   type PreviewWindowResult,
